@@ -1,0 +1,22 @@
+# Default rules embedded in the aec binary. Placeholders only until the
+# full port from ../agent-edit-checker (issue aec-UkLWZ.3).
+
+[[rules]]
+name = "one-test-at-a-time"
+files = ["php"]
+pattern = '''/^\s*(it|test)\s*\(\s*['"]/m'''
+max_matches = 1
+message = "Only write ONE test at a time. Red/green/refactor means one test, see it fail, make it pass, then refactor."
+
+[[rules]]
+name = "no-raw-db"
+files = ["php"]
+pattern = '/DB::(?!transaction\b)/i'
+message = "Don't use raw query builder calls - use Eloquent and model relations. Ask the user if you really need a raw call."
+
+[[rules]]
+name = "no-em-dash"
+files = ["*"]
+command = '/./s'
+pattern = '/[\x{2012}-\x{2015}\x{2E3A}\x{2E3B}\x{FE31}\x{FE32}\x{FE58}]/'
+message = "No em or en dashes. Use a comma, a full stop, or a plain hyphen."

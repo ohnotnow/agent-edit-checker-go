@@ -83,7 +83,7 @@ func TestCompilePatternSinglelineFlag(t *testing.T) {
 
 func TestCompilePatternCodePoints(t *testing.T) {
 	m := mustCompile(t, `/[\x{2012}-\x{2015}]/`)
-	if !m("a — b") {
+	if !m("a " + string(rune(0x2014)) + " b") {
 		t.Error("should match an em dash written as a code point")
 	}
 	if m("a - b") {

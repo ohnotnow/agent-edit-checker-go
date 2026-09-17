@@ -8,14 +8,136 @@ max_matches = 1
 message = "Only write ONE test at a time. Red/green/refactor means one test, see it fail, make it pass, then refactor."
 
 [[rules]]
+name = "no-try-catch"
+files = ["php"]
+pattern = '/try\s*\{/i'
+message = "Don't add try/catch blocks - exceptions are *exceptional* and should trigger Sentry. Use debug logging to diagnose test issues."
+
+[[rules]]
+name = "no-throw"
+files = ["php"]
+pattern = '/\b(throw\s|throw_if|throw_unless)\b/i'
+message = "Don't hand-throw exceptions. Explain what you're trying to do and ask the user."
+
+[[rules]]
+name = "no-mockery"
+files = ["php"]
+pattern = '/(Mock::|mock\(|Mockery)/i'
+message = "Don't use Mockery mocks - use Laravel's fakes instead."
+
+[[rules]]
+name = "no-spy"
+files = ["php"]
+pattern = '/\bspy\s*\(/i'
+message = "Don't use spies - stop and ask the user what to do."
+
+[[rules]]
 name = "no-raw-db"
 files = ["php"]
 pattern = '/DB::(?!transaction\b)/i'
 message = "Don't use raw query builder calls - use Eloquent and model relations. Ask the user if you really need a raw call."
 
 [[rules]]
+name = "no-raw-methods"
+files = ["php"]
+pattern = '/[^\s]Raw/'
+message = "Don't use raw Eloquent database methods - use Eloquent's fluent named methods. Ask the user if you really need this."
+
+[[rules]]
+name = "no-database-assertions"
+files = ["php"]
+pattern = '/assertDatabase/i'
+message = "Don't use raw database assertions - use Eloquent to verify domain/business logic works. Ask the user if you really need this."
+
+[[rules]]
+name = "no-select"
+files = ["php"]
+pattern = '/->select\(/i'
+message = "Don't use select() calls - just grab data from returned models. Selects are premature optimisation."
+
+[[rules]]
+name = "no-php-blocks"
+files = [".blade.php"]
+pattern = '/@php/i'
+message = "Don't use @php blocks in templates - pass data from controller/component in the required format."
+
+[[rules]]
+name = "no-flux-field"
+files = [".blade.php"]
+pattern = '/flux:field/i'
+message = "Are you trying to use a flux:field rather than the shorthand flux:input syntax?  If you *really* need to use a flux:field stop and ask the user to turn this block off."
+
+[[rules]]
+name = "no-float-columns"
+files = ["migration.php"]
+pattern = '/->float\s*\(/i'
+message = "Don't use float columns - use integers and multiply/divide in code. Ask the user if unsure."
+
+[[rules]]
+name = "no-decimal-columns"
+files = ["migration.php"]
+pattern = '/->decimal\s*\(/i'
+message = "Don't use decimal columns - use integers and multiply/divide in code. Ask the user if you really need this."
+
+[[rules]]
+name = "pest-compact"
+command = '/(?:^|\s)(?:\.\/vendor\/bin\/)?pest\b/'
+type = "require"
+pattern = '/\s--compact(\s|$)/'
+message = "Pest must be run with --compact to reduce output. Example: ./vendor/bin/pest --compact"
+
+[[rules]]
+name = "composer-install"
+command = '/\bcomposer\s/'
+type = "forbid"
+pattern = '/\bcomposer\s+(require|update)\b/'
+message = "Never run composer require or composer update without explicit permission. Ask first."
+
+[[rules]]
+name = "npm-install"
+command = '/\bnpm\s/'
+type = "forbid"
+pattern = '/\bnpm\s+(install|update)\b/'
+message = "Never run npm install or update without explicit permission. Ask first."
+
+[[rules]]
+name = "pypi-install"
+command = '/\b(uv|pip|pip3)\s/'
+type = "forbid"
+pattern = '/\b(?:uv\s+add|uv\s+pip\s+install|pip3?\s+install)\b/'
+message = "Never install or update a package without explicit permission. Ask first."
+
+[[rules]]
+name = "env-access"
+command = '/(\.env\b|\bdeclare\b|\bexport\b|\bprintenv\b|\benv\b|config:show)/'
+type = "forbid"
+pattern = '/(\.env\b|(?:^|[;\n&|(]\s*)(?:declare|export|printenv|env)(?=\s|$|\|))/'
+message = "Never read or modify .env, dump env vars (declare/export/printenv/env), or set new ones without explicit permission. Ask first."
+
+[[rules]]
+name = "git-commit-attribution"
+command = '/git\s+commit/'
+type = "forbid"
+pattern = '/co-authored-by:.*\b(claude|anthropic|openai|codex|gpt)\b|generated with.*\bclaude\b|noreply@anthropic\.com/i'
+message = "Do NOT add AI attribution to commits. No Co-Authored-By trailers, no 'Generated with Claude Code' footers. Re-run the commit with those lines removed."
+
+[[rules]]
+name = "gh-pr-attribution"
+command = '/gh\s+pr\s+(create|edit)/'
+type = "forbid"
+pattern = '/co-authored-by:.*\b(claude|anthropic|openai|codex|gpt)\b|generated with.*\bclaude\b|noreply@anthropic\.com/i'
+message = "Do NOT add AI attribution to pull requests. No 'Generated with Claude Code' footers, no Co-Authored-By trailers. Re-run with those lines removed."
+
+[[rules]]
 name = "no-em-dash"
 files = ["*"]
 command = '/./s'
 pattern = '/[\x{2012}-\x{2015}\x{2E3A}\x{2E3B}\x{FE31}\x{FE32}\x{FE58}]/'
-message = "No em or en dashes. Use a comma, a full stop, or a plain hyphen."
+message = '''No em or en dashes. Use a plain hyphen, a comma, a colon, or two shorter sentences. Don't reach for a different dash character or another encoding of the same one, those are blocked too. If the project is already littered with them, that is the user's call, not yours: ask them to run  D=$(php -r 'echo pack("H*","e28093")."|".pack("H*","e28094");'); git ls-files -z --cached --others --exclude-standard | LC_ALL=C xargs -0 grep -lIE --null "$D" | LC_ALL=C xargs -0 sed -i '' -E "s/$D/-/g"'''
+
+[[rules]]
+name = "no-disguised-dash"
+files = ["*"]
+command = '/./s'
+pattern = '/&(?:mdash|ndash|horbar)\b;?|&#0*(?:821[0-3]|1183[45]|6507[34]|65112)\b;?|&#[xX]0*(?:201[2-5]|2E3[AB]|FE3[12]|FE58)\b;?|\\u\{?0*(?:201[2-5]|2E3[AB]|FE3[12]|FE58)\}?|\\x\{0*(?:201[2-5]|2E3[AB]|FE3[12]|FE58)\}|\\N\{(?:(?:EM|EN|FIGURE)[ _-]?DASH|HORIZONTAL[ _-]?BAR)\}|\\0*201[2-5]\b|\\x?e2\\x?80\\x?9[2-5]|\\342\\200\\22[2-5]|\b(?:mb_)?chr\s*\(\s*(?:821[0-3]|0x201[2-5])\s*\)|\bfromChar(?:Code|CodePoint)\s*\(\s*(?:821[0-3]|0x201[2-5])/i'
+message = '''That's a dash in disguise, whether an HTML entity, a string escape, or construction from the code point. Same answer: a plain hyphen, a comma, a colon, or two sentences. If the project is already littered with them, that is the user's call, not yours: ask them to run  D=$(php -r 'echo pack("H*","e28093")."|".pack("H*","e28094");'); git ls-files -z --cached --others --exclude-standard | LC_ALL=C xargs -0 grep -lIE --null "$D" | LC_ALL=C xargs -0 sed -i '' -E "s/$D/-/g"'''

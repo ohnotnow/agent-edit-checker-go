@@ -96,3 +96,84 @@ func TestParseRulesAcceptsTypes(t *testing.T) {
 		}
 	}
 }
+
+var defaultRuleNames = []string{
+	"one-test-at-a-time", "no-try-catch", "no-throw", "no-mockery", "no-spy",
+	"no-raw-db", "no-raw-methods", "no-database-assertions", "no-select",
+	"no-php-blocks", "no-flux-field", "no-float-columns", "no-decimal-columns",
+	"pest-compact", "composer-install", "npm-install", "pypi-install",
+	"env-access", "git-commit-attribution", "gh-pr-attribution",
+	"no-em-dash", "no-disguised-dash",
+}
+
+func TestDefaultRuleNamesAndOrder(t *testing.T) {
+	rules, err := LoadDefaults()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != len(defaultRuleNames) {
+		t.Fatalf("got %d rules, want %d", len(rules), len(defaultRuleNames))
+	}
+	for i, want := range defaultRuleNames {
+		if rules[i].Name != want {
+			t.Errorf("rule %d = %q, want %q", i, rules[i].Name, want)
+		}
+	}
+	for _, name := range []string{"no-em-dash", "no-disguised-dash"} {
+		r := defaultRule(t, name)
+		if len(r.Files) != 1 || r.Files[0] != "*" || r.Command != "/./s" {
+			t.Errorf("%s: files=%v command=%q, want [*] and /./s", name, r.Files, r.Command)
+		}
+	}
+}
+
+func defaultRule(t *testing.T, name string) Rule {
+	t.Helper()
+	rules, err := LoadDefaults()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rules {
+		if r.Name == name {
+			return r
+		}
+	}
+	t.Fatalf("no default rule %q", name)
+	return Rule{}
+}
+
+func checkRule(t *testing.T, name string, matches, misses []string) {
+	t.Helper()
+	r := defaultRule(t, name)
+	for _, s := range matches {
+		if ok, _ := r.re.MatchString(s); !ok {
+			t.Errorf("%s should match %q", name, s)
+		}
+	}
+	for _, s := range misses {
+		if ok, _ := r.re.MatchString(s); ok {
+			t.Errorf("%s should not match %q", name, s)
+		}
+	}
+}
+
+func TestDefaultRuleMatches(t *testing.T) {
+	dash := func(cp rune) string { return "a" + string(cp) + "b" }
+	checkRule(t, "no-em-dash",
+		[]string{dash(0x2014), dash(0x2013), dash(0x2012), dash(0x2015), dash(0xFE58)},
+		[]string{"a-b", dash(0x2212)})
+	checkRule(t, "no-disguised-dash",
+		[]string{"&mdash;", "&#8212;", "&#x2014;", "\\u2014", "\\x{2014}", "\\N{EM DASH}",
+			"\\xe2\\x80\\x94", "\\342\\200\\224", "chr(8212)", "mb_chr(0x2014)", "String.fromCharCode(8212)"},
+		[]string{"&mdashes", "chr(82120)", dash(0x2014)})
+	checkRule(t, "no-raw-db", []string{"DB::table("}, []string{"DB::transaction("})
+	checkRule(t, "env-access",
+		[]string{"cat .env", "export FOO=bar", "env | grep X", "; printenv"},
+		[]string{"envsubst < tpl", "echo environment", `--description "export the data"`})
+	checkRule(t, "pypi-install",
+		[]string{"uv add requests", "pip install x"},
+		[]string{"uv run pytest", "python scripts/add_occasion.py"})
+	checkRule(t, "composer-install",
+		[]string{"composer update"},
+		[]string{"composer updated", "composer install"})
+}

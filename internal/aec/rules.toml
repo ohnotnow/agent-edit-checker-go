@@ -1,5 +1,4 @@
-# Default rules embedded in the aec binary. Placeholders only until the
-# full port from ../agent-edit-checker (issue aec-UkLWZ.3).
+# Default rules embedded in the aec binary.
 
 [[rules]]
 name = "one-test-at-a-time"

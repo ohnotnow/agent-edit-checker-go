@@ -1,0 +1,11 @@
+{
+  "rule": "no-raw-methods",
+  "why": "a Raw suffixed method",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$q->whereRaw('1 = 1');"
+    }
+  },
+  "expect": "deny"
+}

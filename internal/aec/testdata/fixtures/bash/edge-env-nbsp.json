@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "a no-break space between ; and env",
+  "payload": {
+    "tool_input": {
+      "command": "ls;\u00a0env"
+    }
+  },
+  "expect": "deny",
+  "skip_php": "PHP without /u treats U+00A0 as not-whitespace and allows; regexp2's \\s is Unicode-aware and denies."
+}

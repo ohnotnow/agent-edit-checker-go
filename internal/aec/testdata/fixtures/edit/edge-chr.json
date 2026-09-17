@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "constructing the em dash from its code point",
+  "payload": {
+    "tool_input": {
+      "file_path": "x.php",
+      "content": "echo chr(8212);"
+    }
+  },
+  "expect": "deny"
+}

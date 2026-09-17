@@ -1,0 +1,11 @@
+{
+  "rule": "no-select",
+  "why": "a select call",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "User::query()->select('id')->get();"
+    }
+  },
+  "expect": "deny"
+}

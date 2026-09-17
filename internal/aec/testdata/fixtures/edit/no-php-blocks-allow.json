@@ -1,0 +1,11 @@
+{
+  "rule": "no-php-blocks",
+  "why": "plain blade output",
+  "payload": {
+    "tool_input": {
+      "file_path": "resources/views/x.blade.php",
+      "content": "<div>{{ $x }}</div>"
+    }
+  },
+  "expect": "allow"
+}

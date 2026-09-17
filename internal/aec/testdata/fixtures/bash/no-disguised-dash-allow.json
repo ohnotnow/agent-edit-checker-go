@@ -1,0 +1,10 @@
+{
+  "rule": "no-disguised-dash",
+  "why": "an ordinary command",
+  "payload": {
+    "tool_input": {
+      "command": "echo hi"
+    }
+  },
+  "expect": "allow"
+}

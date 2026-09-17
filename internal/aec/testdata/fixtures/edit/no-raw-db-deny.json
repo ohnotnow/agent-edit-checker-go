@@ -1,0 +1,11 @@
+{
+  "rule": "no-raw-db",
+  "why": "a raw query builder call",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "DB::table('users')->get();"
+    }
+  },
+  "expect": "deny"
+}

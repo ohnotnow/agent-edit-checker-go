@@ -1,0 +1,11 @@
+{
+  "rule": "no-flux-field",
+  "why": "flux:field in a template",
+  "payload": {
+    "tool_input": {
+      "file_path": "resources/views/x.blade.php",
+      "content": "<flux:field></flux:field>"
+    }
+  },
+  "expect": "deny"
+}

@@ -1,0 +1,12 @@
+{
+  "rule": "edge",
+  "why": "an edit that adds two tests where there were none",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "old_string": "// tests",
+      "new_string": "it('a', fn () => 1);\nit('b', fn () => 1);"
+    }
+  },
+  "expect": "deny"
+}

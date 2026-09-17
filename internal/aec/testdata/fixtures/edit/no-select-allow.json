@@ -1,0 +1,11 @@
+{
+  "rule": "no-select",
+  "why": "select as a variable name",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$select = 1;"
+    }
+  },
+  "expect": "allow"
+}

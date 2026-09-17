@@ -1,0 +1,11 @@
+{
+  "rule": "no-try-catch",
+  "why": "the word try without a brace",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$try = 1;"
+    }
+  },
+  "expect": "allow"
+}

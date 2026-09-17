@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "the minus sign is not a dash",
+  "payload": {
+    "tool_input": {
+      "file_path": "x.md",
+      "content": "3 \u2212 2"
+    }
+  },
+  "expect": "allow"
+}

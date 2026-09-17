@@ -1,0 +1,11 @@
+{
+  "rule": "no-spy",
+  "why": "spy inside another word",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$spyglass = 1;"
+    }
+  },
+  "expect": "allow"
+}

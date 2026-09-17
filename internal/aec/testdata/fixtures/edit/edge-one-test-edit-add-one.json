@@ -1,0 +1,12 @@
+{
+  "rule": "edge",
+  "why": "an edit that adds a second test next to an existing one",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "old_string": "it('a', fn () => 1);",
+      "new_string": "it('a', fn () => 1);\nit('b', fn () => 1);"
+    }
+  },
+  "expect": "allow"
+}

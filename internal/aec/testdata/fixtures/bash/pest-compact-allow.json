@@ -1,0 +1,10 @@
+{
+  "rule": "pest-compact",
+  "why": "pest with --compact",
+  "payload": {
+    "tool_input": {
+      "command": "./vendor/bin/pest --compact"
+    }
+  },
+  "expect": "allow"
+}

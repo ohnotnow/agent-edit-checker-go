@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "php rules do not apply to python",
+  "payload": {
+    "tool_input": {
+      "file_path": "x.py",
+      "content": "try {"
+    }
+  },
+  "expect": "allow"
+}

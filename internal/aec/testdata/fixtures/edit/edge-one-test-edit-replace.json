@@ -1,0 +1,12 @@
+{
+  "rule": "edge",
+  "why": "an edit that swaps one test for one test adds nothing",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "old_string": "it('a', fn () => 1);",
+      "new_string": "it('b', fn () => 2);"
+    }
+  },
+  "expect": "allow"
+}

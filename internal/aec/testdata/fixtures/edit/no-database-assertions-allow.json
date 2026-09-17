@@ -1,0 +1,11 @@
+{
+  "rule": "no-database-assertions",
+  "why": "an ordinary assertion",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$this->assertTrue(true);"
+    }
+  },
+  "expect": "allow"
+}

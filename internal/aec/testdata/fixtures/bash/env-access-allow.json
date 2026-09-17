@@ -1,0 +1,10 @@
+{
+  "rule": "env-access",
+  "why": "envsubst is not env",
+  "payload": {
+    "tool_input": {
+      "command": "envsubst < t"
+    }
+  },
+  "expect": "allow"
+}

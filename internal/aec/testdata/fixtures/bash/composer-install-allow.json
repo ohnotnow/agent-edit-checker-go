@@ -1,0 +1,10 @@
+{
+  "rule": "composer-install",
+  "why": "composer install is not require or update",
+  "payload": {
+    "tool_input": {
+      "command": "composer install"
+    }
+  },
+  "expect": "allow"
+}

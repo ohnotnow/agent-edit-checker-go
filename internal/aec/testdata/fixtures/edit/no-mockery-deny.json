@@ -1,0 +1,11 @@
+{
+  "rule": "no-mockery",
+  "why": "a Mockery mock",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$m = Mockery::mock(Foo::class);"
+    }
+  },
+  "expect": "deny"
+}

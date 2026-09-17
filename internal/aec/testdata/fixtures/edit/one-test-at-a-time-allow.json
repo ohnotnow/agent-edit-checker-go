@@ -1,0 +1,11 @@
+{
+  "rule": "one-test-at-a-time",
+  "why": "a single test is fine",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "it('a', fn () => 1);"
+    }
+  },
+  "expect": "allow"
+}

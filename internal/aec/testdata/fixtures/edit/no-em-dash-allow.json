@@ -1,0 +1,11 @@
+{
+  "rule": "no-em-dash",
+  "why": "a hyphen in a year range",
+  "payload": {
+    "tool_input": {
+      "file_path": "notes.md",
+      "content": "1939-45"
+    }
+  },
+  "expect": "allow"
+}

@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "the blade extension is matched case-insensitively",
+  "payload": {
+    "tool_input": {
+      "file_path": "RESOURCES/X.BLADE.PHP",
+      "content": "@php"
+    }
+  },
+  "expect": "deny"
+}

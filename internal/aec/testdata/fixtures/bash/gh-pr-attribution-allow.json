@@ -1,0 +1,10 @@
+{
+  "rule": "gh-pr-attribution",
+  "why": "an ordinary body",
+  "payload": {
+    "tool_input": {
+      "command": "gh pr create --body \"Adds a thing\""
+    }
+  },
+  "expect": "allow"
+}

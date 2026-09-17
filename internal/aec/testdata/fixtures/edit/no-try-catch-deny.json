@@ -1,0 +1,14 @@
+{
+  "rule": "no-try-catch",
+  "why": "a try block",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "try {\n} catch (Throwable $e) {\n}"
+    }
+  },
+  "expect": "deny",
+  "messages_contain": [
+    "try/catch"
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "rule": "edge",
+  "why": "updated is not update at a word boundary",
+  "payload": {
+    "tool_input": {
+      "command": "composer updated"
+    }
+  },
+  "expect": "allow"
+}

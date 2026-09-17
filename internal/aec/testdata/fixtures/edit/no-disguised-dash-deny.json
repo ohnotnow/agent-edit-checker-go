@@ -1,0 +1,14 @@
+{
+  "rule": "no-disguised-dash",
+  "why": "an html entity",
+  "payload": {
+    "tool_input": {
+      "file_path": "notes.md",
+      "content": "a &mdash; b"
+    }
+  },
+  "expect": "deny",
+  "messages_contain": [
+    "dash in disguise"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "test at column zero and an indented test both count",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "test('a', fn () => 1);\n    test('b', fn () => 1);"
+    }
+  },
+  "expect": "deny"
+}

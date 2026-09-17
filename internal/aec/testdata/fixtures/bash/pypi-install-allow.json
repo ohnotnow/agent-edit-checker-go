@@ -1,0 +1,10 @@
+{
+  "rule": "pypi-install",
+  "why": "uv run",
+  "payload": {
+    "tool_input": {
+      "command": "uv run pytest"
+    }
+  },
+  "expect": "allow"
+}

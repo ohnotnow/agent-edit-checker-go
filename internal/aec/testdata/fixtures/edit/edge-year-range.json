@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "a hyphen in a year range",
+  "payload": {
+    "tool_input": {
+      "file_path": "x.md",
+      "content": "1939-45"
+    }
+  },
+  "expect": "allow"
+}

@@ -1,0 +1,10 @@
+{
+  "rule": "gh-pr-attribution",
+  "why": "a generated-with footer",
+  "payload": {
+    "tool_input": {
+      "command": "gh pr create --body \"Generated with Claude Code\""
+    }
+  },
+  "expect": "deny"
+}

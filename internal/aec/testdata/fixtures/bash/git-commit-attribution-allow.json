@@ -1,0 +1,10 @@
+{
+  "rule": "git-commit-attribution",
+  "why": "a human trailer",
+  "payload": {
+    "tool_input": {
+      "command": "git commit -m \"x\" -m \"Co-Authored-By: A Person <a@example.com>\""
+    }
+  },
+  "expect": "allow"
+}

@@ -1,0 +1,11 @@
+{
+  "rule": "no-mockery",
+  "why": "mock as a prefix of another word",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$mockup = 1;"
+    }
+  },
+  "expect": "allow"
+}

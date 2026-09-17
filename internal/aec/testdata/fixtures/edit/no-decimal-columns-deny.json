@@ -1,0 +1,11 @@
+{
+  "rule": "no-decimal-columns",
+  "why": "a decimal column in a migration",
+  "payload": {
+    "tool_input": {
+      "file_path": "database/migrations/2024_01_01_000000_x.php",
+      "content": "$table->decimal('x', 8, 2);"
+    }
+  },
+  "expect": "deny"
+}

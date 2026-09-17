@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "star rules apply to a file with no extension",
+  "payload": {
+    "tool_input": {
+      "file_path": "Makefile",
+      "content": "x \u2014 y"
+    }
+  },
+  "expect": "deny"
+}

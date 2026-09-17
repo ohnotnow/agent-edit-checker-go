@@ -1,0 +1,11 @@
+{
+  "rule": "no-database-assertions",
+  "why": "a database assertion",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$this->assertDatabaseHas('users', []);"
+    }
+  },
+  "expect": "deny"
+}

@@ -1,0 +1,11 @@
+{
+  "rule": "no-float-columns",
+  "why": "a float column in a migration",
+  "payload": {
+    "tool_input": {
+      "file_path": "database/migrations/2024_01_01_000000_x.php",
+      "content": "$table->float('x');"
+    }
+  },
+  "expect": "deny"
+}

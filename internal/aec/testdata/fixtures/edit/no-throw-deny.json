@@ -1,0 +1,11 @@
+{
+  "rule": "no-throw",
+  "why": "a hand-thrown exception",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "throw new RuntimeException('x');"
+    }
+  },
+  "expect": "deny"
+}

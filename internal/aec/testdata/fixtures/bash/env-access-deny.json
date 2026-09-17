@@ -1,0 +1,10 @@
+{
+  "rule": "env-access",
+  "why": "export at a command boundary",
+  "payload": {
+    "tool_input": {
+      "command": "export FOO=1"
+    }
+  },
+  "expect": "deny"
+}

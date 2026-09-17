@@ -1,0 +1,10 @@
+{
+  "rule": "npm-install",
+  "why": "npm run",
+  "payload": {
+    "tool_input": {
+      "command": "npm run build"
+    }
+  },
+  "expect": "allow"
+}

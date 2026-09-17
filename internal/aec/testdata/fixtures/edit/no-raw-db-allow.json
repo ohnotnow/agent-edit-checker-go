@@ -1,0 +1,11 @@
+{
+  "rule": "no-raw-db",
+  "why": "DB::transaction is the one raw DB call that is allowed",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "DB::transaction(fn () => 1);"
+    }
+  },
+  "expect": "allow"
+}

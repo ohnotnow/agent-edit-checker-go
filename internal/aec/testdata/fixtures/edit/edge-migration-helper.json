@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "a file under migrations without the prefix is plain php",
+  "payload": {
+    "tool_input": {
+      "file_path": "database/migrations/helper.php",
+      "content": "$table->float('x');"
+    }
+  },
+  "expect": "allow"
+}

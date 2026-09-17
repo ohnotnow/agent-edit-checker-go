@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "a javascript unicode escape of the em dash",
+  "payload": {
+    "tool_input": {
+      "file_path": "x.js",
+      "content": "const d = '\\u2014';"
+    }
+  },
+  "expect": "deny"
+}

@@ -1,0 +1,14 @@
+{
+  "rule": "one-test-at-a-time",
+  "why": "two tests in one write",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "it('a', fn () => 1);\nit('b', fn () => 1);"
+    }
+  },
+  "expect": "deny",
+  "messages_contain": [
+    "ONE test"
+  ]
+}

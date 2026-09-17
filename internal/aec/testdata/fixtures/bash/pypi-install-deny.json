@@ -1,0 +1,10 @@
+{
+  "rule": "pypi-install",
+  "why": "uv add",
+  "payload": {
+    "tool_input": {
+      "command": "uv add x"
+    }
+  },
+  "expect": "deny"
+}

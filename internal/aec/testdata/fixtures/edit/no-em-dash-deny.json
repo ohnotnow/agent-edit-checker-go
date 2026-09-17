@@ -1,0 +1,14 @@
+{
+  "rule": "no-em-dash",
+  "why": "an em dash in markdown",
+  "payload": {
+    "tool_input": {
+      "file_path": "notes.md",
+      "content": "a \u2014 b"
+    }
+  },
+  "expect": "deny",
+  "messages_contain": [
+    "No em or en dashes"
+  ]
+}

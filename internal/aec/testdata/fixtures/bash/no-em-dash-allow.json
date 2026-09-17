@@ -1,0 +1,10 @@
+{
+  "rule": "no-em-dash",
+  "why": "a hyphen in a command",
+  "payload": {
+    "tool_input": {
+      "command": "echo 'a - b' > x.md"
+    }
+  },
+  "expect": "allow"
+}

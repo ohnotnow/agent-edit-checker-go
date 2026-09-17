@@ -1,0 +1,10 @@
+{
+  "rule": "no-em-dash",
+  "why": "an em dash in a command",
+  "payload": {
+    "tool_input": {
+      "command": "echo 'a \u2014 b' > x.md"
+    }
+  },
+  "expect": "deny"
+}

@@ -1,0 +1,11 @@
+{
+  "rule": "no-raw-methods",
+  "why": "Raw preceded by whitespace is a plain word",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "// Raw data"
+    }
+  },
+  "expect": "allow"
+}

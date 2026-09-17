@@ -1,0 +1,11 @@
+{
+  "rule": "no-spy",
+  "why": "a spy",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$this->spy(Foo::class);"
+    }
+  },
+  "expect": "deny"
+}

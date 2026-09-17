@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "npm followed by a no-break space",
+  "payload": {
+    "tool_input": {
+      "command": "npm\u00a0install foo"
+    }
+  },
+  "expect": "deny",
+  "skip_php": "PHP without /u treats U+00A0 as not-whitespace and allows; regexp2's \\s is Unicode-aware and denies."
+}

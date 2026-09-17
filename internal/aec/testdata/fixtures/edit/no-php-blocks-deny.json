@@ -1,0 +1,11 @@
+{
+  "rule": "no-php-blocks",
+  "why": "a php block in a template",
+  "payload": {
+    "tool_input": {
+      "file_path": "resources/views/x.blade.php",
+      "content": "@php $x = 1; @endphp"
+    }
+  },
+  "expect": "deny"
+}

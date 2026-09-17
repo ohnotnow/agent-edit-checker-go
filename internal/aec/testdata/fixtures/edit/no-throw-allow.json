@@ -1,0 +1,11 @@
+{
+  "rule": "no-throw",
+  "why": "throw as part of a longer word",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "$thrower = 1;"
+    }
+  },
+  "expect": "allow"
+}

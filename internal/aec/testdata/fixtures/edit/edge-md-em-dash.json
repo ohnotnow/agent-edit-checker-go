@@ -1,0 +1,11 @@
+{
+  "rule": "edge",
+  "why": "star rules apply to markdown",
+  "payload": {
+    "tool_input": {
+      "file_path": "README.md",
+      "content": "x \u2014 y"
+    }
+  },
+  "expect": "deny"
+}

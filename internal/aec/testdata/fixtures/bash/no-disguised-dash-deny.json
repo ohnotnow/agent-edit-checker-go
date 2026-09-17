@@ -1,0 +1,10 @@
+{
+  "rule": "no-disguised-dash",
+  "why": "constructing the em dash in a command",
+  "payload": {
+    "tool_input": {
+      "command": "php -r 'echo chr(8212);'"
+    }
+  },
+  "expect": "deny"
+}

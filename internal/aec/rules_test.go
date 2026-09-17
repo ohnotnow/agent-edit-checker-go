@@ -3,22 +3,7 @@ package aec
 import (
 	"strings"
 	"testing"
-
-	"github.com/dlclark/regexp2"
 )
-
-func countMatches(t *testing.T, re *regexp2.Regexp, s string) int {
-	t.Helper()
-	n := 0
-	m, err := re.FindStringMatch(s)
-	for ; m != nil && err == nil; m, err = re.FindNextMatch(m) {
-		n++
-	}
-	if err != nil {
-		t.Fatalf("match: %v", err)
-	}
-	return n
-}
 
 func TestLoadDefaults(t *testing.T) {
 	rules, err := LoadDefaults()

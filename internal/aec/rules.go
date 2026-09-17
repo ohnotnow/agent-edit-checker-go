@@ -24,8 +24,31 @@ type Rule struct {
 	Type       string   `toml:"type"`        // "forbid" (default when empty) or "require"; command rules only
 	MaxMatches *int     `toml:"max_matches"` // files only; nil means any match blocks
 
+	// Enabled is false only when the overlay's disabled list names the rule.
+	Enabled bool   `toml:"-"`
+	Origin  Origin `toml:"-"`
+
 	re        *regexp2.Regexp // compiled Pattern
 	commandRe *regexp2.Regexp // compiled Command, nil when Command is ""
+}
+
+// Origin records where an effective rule came from.
+type Origin int
+
+const (
+	OriginDefault    Origin = iota // untouched default
+	OriginOverridden               // default with one or more keys replaced by the overlay
+	OriginUser                     // rule that exists only in the overlay
+)
+
+func (o Origin) String() string {
+	switch o {
+	case OriginOverridden:
+		return "overridden"
+	case OriginUser:
+		return "user"
+	}
+	return "default"
 }
 
 // RuleSet is an ordered list of rules. Order is file order and is preserved
@@ -59,6 +82,8 @@ func parseRules(data []byte) (RuleSet, error) {
 			return nil, fmt.Errorf("rule %q: duplicate name", r.Name)
 		}
 		seen[r.Name] = true
+		r.Enabled = true
+		r.Origin = OriginDefault
 	}
 	return RuleSet(f.Rules), nil
 }
@@ -110,4 +135,21 @@ func validateRule(r *Rule) error {
 		r.commandRe = cre
 	}
 	return nil
+}
+
+// matches reports whether re matches s. A timeout counts as no match.
+func matches(re *regexp2.Regexp, s string) bool {
+	ok, err := re.MatchString(s)
+	return err == nil && ok
+}
+
+// countMatches is preg_match_all: the number of non-overlapping matches.
+func countMatches(re *regexp2.Regexp, s string) int {
+	n := 0
+	m, err := re.FindStringMatch(s)
+	for m != nil && err == nil {
+		n++
+		m, err = re.FindNextMatch(m)
+	}
+	return n
 }

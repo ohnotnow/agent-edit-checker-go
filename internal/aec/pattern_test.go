@@ -64,10 +64,10 @@ func TestCompilePatternMultilineFlag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := countMatches(t, with, input); n != 2 {
+	if n := countMatches(with, input); n != 2 {
 		t.Errorf("with m flag: want 2 matches, got %d", n)
 	}
-	if n := countMatches(t, without, input); n != 1 {
+	if n := countMatches(without, input); n != 1 {
 		t.Errorf("without m flag: want 1 match, got %d", n)
 	}
 }

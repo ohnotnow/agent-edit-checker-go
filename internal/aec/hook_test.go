@@ -112,7 +112,7 @@ func TestHookDisabledOverlay(t *testing.T) {
 }
 
 func TestUsage(t *testing.T) {
-	for _, args := range [][]string{nil, {"nonsense"}, {"hook"}, {"hook", "nope"}} {
+	for _, args := range [][]string{nil, {"nonsense"}, {"hook"}, {"hook", "nope"}, {"rules"}, {"rules", "nope"}} {
 		code, stderr := run(t, "", args...)
 		if code != 64 || !strings.HasPrefix(stderr, "usage:") {
 			t.Errorf("%v: code=%d stderr=%q", args, code, stderr)

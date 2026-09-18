@@ -36,14 +36,25 @@ const (
 	hookBash
 )
 
+// hookCommand wraps runHook as a command. The hooks take no arguments.
+func hookCommand(kind hookKind) command {
+	return func(args []string, stdin io.Reader, _, stderr io.Writer) error {
+		if len(args) != 0 {
+			return usageErr("hook commands take no arguments")
+		}
+		return runHook(kind, stdin, stderr)
+	}
+}
+
 // runHook loads the effective rules, decodes the payload and prints any
 // violations. Unreadable input allows the call, as the PHP hooks did.
-func runHook(kind hookKind, stdin io.Reader, stderr io.Writer) int {
+// A blocked call returns errBlocked after the Blocked lines are printed.
+func runHook(kind hookKind, stdin io.Reader, stderr io.Writer) error {
 	rules := effectiveRules(stderr)
 
 	var p payload
 	if err := json.NewDecoder(stdin).Decode(&p); err != nil {
-		return exitOK
+		return nil
 	}
 
 	var msgs []string
@@ -56,12 +67,12 @@ func runHook(kind hookKind, stdin io.Reader, stderr io.Writer) int {
 	}
 
 	if len(msgs) == 0 {
-		return exitOK
+		return nil
 	}
 	for _, m := range msgs {
 		fmt.Fprintf(stderr, "\u274c Blocked: %s\n", m)
 	}
-	return exitBlocked
+	return errBlocked
 }
 
 // effectiveRules merges the overlay over the defaults. A broken overlay is

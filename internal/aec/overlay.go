@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -43,6 +44,10 @@ func OverlayPath() (string, error) {
 type overlayFile struct {
 	Disabled []string      `toml:"disabled"`
 	Rules    []overlayRule `toml:"rules"`
+
+	// Undecoded lists keys in the file that nothing above reads, such as
+	// a misspelt key or an enabled flag inside a rule block.
+	Undecoded []string `toml:"-"`
 }
 
 // overlayRule has every key optional, so "not given" is distinguishable
@@ -103,10 +108,76 @@ func LoadOverlay(path string) (*overlayFile, error) {
 		return nil, err
 	}
 	var ov overlayFile
-	if _, err := toml.Decode(string(data), &ov); err != nil {
+	md, err := toml.Decode(string(data), &ov)
+	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	for _, k := range md.Undecoded() {
+		ov.Undecoded = append(ov.Undecoded, k.String())
+	}
 	return &ov, nil
+}
+
+// starterExamples is the worked part of the starter overlay: valid TOML
+// showing the three things an overlay can do. It is shipped commented out.
+const starterExamples = `# 1. Switch defaults off by name.
+disabled = ["no-try-catch", "no-throw"]
+
+# 2. Change one key of a default. Only the keys you give are replaced.
+#    aec rules show <name> prints the default to start from.
+[[rules]]
+name = "no-try-catch"
+message = "try/catch is fine here, but say why in a comment."
+
+# 3. Add a rule of your own. It needs name, pattern, message and one of
+#    files or command.
+[[rules]]
+name = "no-console-log"
+files = ["js", "ts"]
+pattern = '/console\.log\(/'
+message = "Remove console.log calls before committing."
+`
+
+const starterHeader = `# aec overlay. The rules live in the aec binary; this file only lists
+# what you change. Run aec rules list to see the result.
+#
+# Everything below is an example and commented out. Uncomment what you
+# need. There are three things you can do:
+
+`
+
+// starterOverlay is the file written when a user has no overlay yet.
+var starterOverlay = starterHeader + commentOut(starterExamples)
+
+// commentOut prefixes every non-blank, non-comment line with "# ".
+func commentOut(src string) string {
+	lines := strings.Split(src, "\n")
+	for i, l := range lines {
+		if l != "" && !strings.HasPrefix(l, "#") {
+			lines[i] = "# " + l
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// ensureOverlay writes the starter overlay at path when no file exists
+// there. It reports whether it wrote one.
+func ensureOverlay(path string) (bool, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, os.ErrExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	if _, err := f.WriteString(starterOverlay); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Merge applies the overlay to the defaults by rule name.

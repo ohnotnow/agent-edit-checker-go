@@ -3,13 +3,28 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  build:
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,21 +33,37 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build binaries
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
         run: |
-          # macOS
-          GOOS=darwin GOARCH=amd64  go build -ldflags="-s -w" -o dist/aec-darwin-amd64 ./cmd/aec
-          GOOS=darwin GOARCH=arm64  go build -ldflags="-s -w" -o dist/aec-darwin-arm64 ./cmd/aec
+          ext=""
+          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
+          VERSION="${GITHUB_REF_NAME}"
+          REPO_URL="https://github.com/${{ github.repository }}"
+          go build -ldflags "-X github.com/ohnotnow/agent-edit-checker-go/internal/aec.Version=${VERSION} -X github.com/ohnotnow/agent-edit-checker-go/internal/aec.RepoURL=${REPO_URL}" -o "aec-${GOOS}-${GOARCH}${ext}" ./cmd/aec
 
-          # Linux
-          GOOS=linux GOARCH=amd64   go build -ldflags="-s -w" -o dist/aec-linux-amd64 ./cmd/aec
-          GOOS=linux GOARCH=arm64   go build -ldflags="-s -w" -o dist/aec-linux-arm64 ./cmd/aec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aec-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: aec-*
 
-          # Windows
-          GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o dist/aec-windows-amd64.exe ./cmd/aec
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: sha256sum aec-* > SHA256SUMS
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: dist/*
+          files: |
+            aec-*
+            SHA256SUMS

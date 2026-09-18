@@ -120,29 +120,42 @@ func LoadOverlay(path string) (*overlayFile, error) {
 
 // starterExamples is the worked part of the starter overlay: valid TOML
 // showing the three things an overlay can do. It is shipped commented out.
-const starterExamples = `# 1. Switch defaults off by name.
-disabled = ["no-try-catch", "no-throw"]
+const starterExamples = `# 1. Switch a default off by name. aec rules list prints every rule and
+#    aec rules show <name> prints one. This project has no Sentry, so an
+#    agent throwing its own exceptions is fine here.
+disabled = ["no-throw"]
 
-# 2. Change one key of a default. Only the keys you give are replaced.
-#    aec rules show <name> prints the default to start from.
+# 2. Reword a default. Give the name and only the keys you want changed;
+#    the rest of the rule stays as shipped.
 [[rules]]
-name = "no-try-catch"
-message = "try/catch is fine here, but say why in a comment."
+name = "one-test-at-a-time"
+message = "Write one test, run it, then write the next."
 
-# 3. Add a rule of your own. It needs name, pattern, message and one of
-#    files or command.
+# 3. Add a file rule of your own. It runs on every Write and Edit to the
+#    listed file types and blocks the edit when pattern matches the new
+#    content. The message is what the agent sees instead of the edit.
 [[rules]]
-name = "no-console-log"
-files = ["js", "ts"]
-pattern = '/console\.log\(/'
-message = "Remove console.log calls before committing."
+name = "no-dd"
+files = ["php"]
+pattern = '/\bdd\(/'
+message = "Don't use dd(). Use Log::debug() and check the log."
+
+# 4. Add a command rule. It runs on every Bash call whose command matches
+#    command, and blocks it when pattern also matches.
+[[rules]]
+name = "no-svn"
+command = '/\bsvn\s/'
+pattern = '/\bsvn\s+(checkout|co|commit|ci|update|up)\b/'
+message = "It's 2026 - take a good look at yourself."
 `
 
 const starterHeader = `# aec overlay. The rules live in the aec binary; this file only lists
-# what you change. Run aec rules list to see the result.
+# what you change about them. Run aec rules list to see the result.
 #
-# Everything below is an example and commented out. Uncomment what you
-# need. There are three things you can do:
+# A rule is a regex plus a message. File rules check the content an agent
+# is about to write or edit; command rules check the Bash command it is
+# about to run. When a rule matches, aec blocks the action and shows the
+# agent the message.
 
 `
 

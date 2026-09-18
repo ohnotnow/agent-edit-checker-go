@@ -32,24 +32,30 @@ Restart Claude Code, or start a new session, for the hooks to take effect.
 
 ## The overlay
 
-The overlay lives at `~/.config/aec/rules.toml` (or under `$XDG_CONFIG_HOME` if set). The first `aec install` or `aec rules` command writes a starter file that is entirely comments and shows the three things you can do:
+The overlay lives at `~/.config/aec/rules.toml` (or under `$XDG_CONFIG_HOME` if set). The first `aec install` or `aec rules` command writes a starter file that is entirely comments. A rule is a regex plus a message: file rules check the content an agent is about to write or edit, command rules check the Bash command it is about to run, and a match blocks the action and shows the agent the message. The starter walks through the four things you can do:
 
 ```toml
-# 1. Switch defaults off by name.
-disabled = ["no-try-catch", "no-throw"]
+# 1. Switch a default off by name.
+disabled = ["no-throw"]
 
-# 2. Change one key of a default. Only the keys you give are replaced.
+# 2. Reword a default. Only the keys you give are replaced.
 [[rules]]
-name = "no-try-catch"
-message = "try/catch is fine here, but say why in a comment."
+name = "one-test-at-a-time"
+message = "Write one test, run it, then write the next."
 
-# 3. Add a rule of your own. It needs name, pattern, message and one of
-#    files or command.
+# 3. Add a file rule of your own.
 [[rules]]
-name = "no-console-log"
-files = ["js", "ts"]
-pattern = '/console\.log\(/'
-message = "Remove console.log calls before committing."
+name = "no-dd"
+files = ["php"]
+pattern = '/\bdd\(/'
+message = "Don't use dd(). Use Log::debug() and check the log."
+
+# 4. Add a command rule.
+[[rules]]
+name = "no-svn"
+command = '/\bsvn\s/'
+pattern = '/\bsvn\s+(checkout|co|commit|ci|update|up)\b/'
+message = "It's 2026 - take a good look at yourself."
 ```
 
 Patterns are PHP-style regexes with delimiters and flags, so anything from the PHP hooks pastes in unchanged. Use single quotes around them in TOML so backslashes are taken literally.

@@ -48,7 +48,7 @@ func TestStarterExamplesAreValid(t *testing.T) {
 	if len(ov.Undecoded) != 0 {
 		t.Errorf("examples have unknown keys: %v", ov.Undecoded)
 	}
-	if strings.Join(ov.Disabled, ",") != "no-try-catch,no-throw" {
+	if strings.Join(ov.Disabled, ",") != "no-throw" {
 		t.Errorf("disabled = %v", ov.Disabled)
 	}
 	defaults, _ := LoadDefaults()
@@ -59,11 +59,16 @@ func TestStarterExamplesAreValid(t *testing.T) {
 	if len(merged.Stale) != 0 {
 		t.Errorf("stale: %v", merged.Stale)
 	}
-	if r := ruleByName(t, merged.Rules, "no-try-catch"); r.Origin != OriginOverridden || r.Enabled {
-		t.Errorf("no-try-catch: origin=%v enabled=%v", r.Origin, r.Enabled)
+	if r := ruleByName(t, merged.Rules, "no-throw"); r.Enabled {
+		t.Errorf("no-throw: enabled=%v", r.Enabled)
 	}
-	if r := ruleByName(t, merged.Rules, "no-console-log"); r.Origin != OriginUser {
-		t.Errorf("no-console-log: origin=%v", r.Origin)
+	if r := ruleByName(t, merged.Rules, "one-test-at-a-time"); r.Origin != OriginOverridden || r.MaxMatches == nil || *r.MaxMatches != 1 {
+		t.Errorf("one-test-at-a-time: origin=%v max_matches=%v", r.Origin, r.MaxMatches)
+	}
+	for _, name := range []string{"no-dd", "no-svn"} {
+		if r := ruleByName(t, merged.Rules, name); r.Origin != OriginUser {
+			t.Errorf("%s: origin=%v", name, r.Origin)
+		}
 	}
 }
 

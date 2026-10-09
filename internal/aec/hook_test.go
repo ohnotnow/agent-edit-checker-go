@@ -66,6 +66,7 @@ func TestHookEditContentSelection(t *testing.T) {
 
 func TestHookBash(t *testing.T) {
 	dir := useTempConfig(t)
+	useFixedClock(t)
 	code, stderr := run(t, `{"tool_input":{"command":"npm install foo"}}`, "hook", "bash")
 	if code != 2 || !strings.Contains(stderr, "Never run npm install") {
 		t.Errorf("code=%d stderr=%q", code, stderr)
@@ -78,7 +79,8 @@ func TestHookBash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := "denied | npm install foo\nallowed | npm run build\n"; string(log) != want {
+	if want := "2026-10-09T19:30:12+01:00 | denied | npm install foo\n" +
+		"2026-10-09T19:30:12+01:00 | allowed | npm run build\n"; string(log) != want {
 		t.Errorf("log=%q want %q", log, want)
 	}
 }

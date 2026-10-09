@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 )
 
 const commandRules = `
@@ -66,7 +67,16 @@ func TestCheckCommandSkipsDisabled(t *testing.T) {
 	}
 }
 
+// useFixedClock pins now to 2026-10-09T19:30:12+01:00 for the test.
+func useFixedClock(t *testing.T) {
+	t.Helper()
+	orig := now
+	t.Cleanup(func() { now = orig })
+	now = func() time.Time { return time.Date(2026, 10, 9, 19, 30, 12, 0, time.FixedZone("BST", 3600)) }
+}
+
 func TestLogDecision(t *testing.T) {
+	useFixedClock(t)
 	path := filepath.Join(t.TempDir(), "tool-use.log")
 	LogDecision(path, false, "ls -la")
 	LogDecision(path, true, "printf 'a\r\nb'")
@@ -74,7 +84,8 @@ func TestLogDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "allowed | ls -la\ndenied | printf 'a\\r\\nb'\n"
+	want := "2026-10-09T19:30:12+01:00 | allowed | ls -la\n" +
+		"2026-10-09T19:30:12+01:00 | denied | printf 'a\\r\\nb'\n"
 	if string(got) != want {
 		t.Errorf("log = %q, want %q", got, want)
 	}

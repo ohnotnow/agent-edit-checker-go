@@ -3,6 +3,7 @@ package aec
 import (
 	"os"
 	"strings"
+	"time"
 )
 
 // CheckCommand returns the messages of every enabled rule that fires on a
@@ -25,8 +26,9 @@ func CheckCommand(rules []Rule, command string) []string {
 
 var logLineReplacer = strings.NewReplacer("\r", `\r`, "\n", `\n`)
 
-// LogDecision appends "allowed | cmd" or "denied | cmd" to the log at
-// logPath. Best effort: any error is ignored so logging can never change
+// LogDecision appends "<timestamp> | allowed | cmd" or
+// "<timestamp> | denied | cmd" to the log at logPath, the timestamp in
+// RFC 3339 local time. Best effort: any error is ignored so logging can never change
 // the decision.
 func LogDecision(logPath string, denied bool, command string) {
 	decision := "allowed"
@@ -38,5 +40,5 @@ func LogDecision(logPath string, denied bool, command string) {
 		return
 	}
 	defer f.Close()
-	_, _ = f.WriteString(decision + " | " + logLineReplacer.Replace(command) + "\n")
+	_, _ = f.WriteString(now().Format(time.RFC3339) + " | " + decision + " | " + logLineReplacer.Replace(command) + "\n")
 }

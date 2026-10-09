@@ -1,12 +1,15 @@
 package aec
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // nudgeEnv points the config dir at a temp dir, pins the clock, and stops
@@ -18,7 +21,11 @@ func nudgeEnv(t *testing.T) (string, string) {
 	useFixedClock(t)
 	old := nudgeIgnoredPrefixes
 	nudgeIgnoredPrefixes = []string{filepath.Join(t.TempDir(), "ignored") + "/"}
-	t.Cleanup(func() { nudgeIgnoredPrefixes = old })
+	oldRun := runCommand
+	runCommand = func(context.Context, string, ...string) ([]byte, error) {
+		return nil, errors.New("no commands in tests")
+	}
+	t.Cleanup(func() { nudgeIgnoredPrefixes, runCommand = old, oldRun })
 	return cfg, t.TempDir()
 }
 
@@ -37,7 +44,7 @@ func touch(t *testing.T, dir string, n int) []string {
 }
 
 type nudgeCall struct {
-	tool, path, agentID, subagentType string
+	tool, path, agentID, subagentType, transcript, cwd string
 }
 
 // nudge runs the hook once and returns the injected context, or "" when
@@ -51,6 +58,12 @@ func nudge(t *testing.T, c nudgeCall) string {
 	}
 	if c.agentID != "" {
 		p["agent_id"] = c.agentID
+	}
+	if c.transcript != "" {
+		p["transcript_path"] = c.transcript
+	}
+	if c.cwd != "" {
+		p["cwd"] = c.cwd
 	}
 	payload, _ := json.Marshal(p)
 	code, stdout, stderr := runOut(t, string(payload), "hook", "nudge")
@@ -434,5 +447,179 @@ func TestNudgeTestQualityDisabled(t *testing.T) {
 	_, tests := laravelApp(t, dir, 8, true, "test-quality-checker")
 	if got := editAll(t, tests); got[7] != "" {
 		t.Errorf("disabled signal fired: %q", got[7])
+	}
+}
+
+// transcript writes a fake session transcript whose last model line names
+// model, followed by filler bytes with no model line.
+func transcript(t *testing.T, model string, filler int) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "session.jsonl")
+	body := `{"type":"assistant","message":{"model":"claude-haiku-4-5"}}` + "\n" +
+		`{"type":"assistant","message":{"model":"` + model + `"}}` + "\n" +
+		`{"type":"user","content":"` + strings.Repeat("A", filler) + `"}` + "\n"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// firesAt edits distinct files, reading nothing, until state-load fires,
+// and returns the count it fired at, or 0.
+func firesAt(t *testing.T, dir string, c nudgeCall, max int) int {
+	t.Helper()
+	for i, f := range touch(t, dir, max) {
+		c.tool, c.path = "Write", f
+		if strings.HasPrefix(nudge(t, c), "State-load nudge") {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+func TestNudgeModelThresholds(t *testing.T) {
+	cases := []struct {
+		name, overlay, model string
+		filler, want         int
+	}{
+		{"fable", "", "claude-fable-5-1", 0, 10},
+		{"haiku", "", "claude-haiku-4-5", 0, 5},
+		{"sub-version override", "[nudge.models]\n\"fable-5-1\" = 6\n", "claude-fable-5-1", 0, 6},
+		{"below the default", "[nudge.models]\nhaiku = 3\n", "claude-haiku-4-5", 0, 3},
+		{"model line behind a 1 MB line", "", "claude-fable-5-1", 1 << 20, 10},
+		{"no model within 4 MB", "", "claude-fable-5-1", 5 << 20, 5},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg, dir := nudgeEnv(t)
+			if c.overlay != "" {
+				writeOverlay(t, cfg, c.overlay)
+			}
+			call := nudgeCall{transcript: transcript(t, c.model, c.filler)}
+			if got := firesAt(t, dir, call, 12); got != c.want {
+				t.Errorf("fired at %d, want %d", got, c.want)
+			}
+		})
+	}
+}
+
+func TestNudgeModelLogLabel(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	firesAt(t, dir, nudgeCall{transcript: transcript(t, "claude-fable-5-1", 0)}, 10)
+	firesAt(t, t.TempDir(), nudgeCall{transcript: filepath.Join(dir, "missing.jsonl"), agentID: "x"}, 5)
+	log, _ := os.ReadFile(filepath.Join(cfg, "aec", "state-nudge.log"))
+	for _, s := range []string{"fired at 10 (threshold 10, model claude-fable-5-1)", "fired at 5 (threshold 5, model subagent-default)"} {
+		if !strings.Contains(string(log), s) {
+			t.Errorf("log lacks %q:\n%s", s, log)
+		}
+	}
+}
+
+func TestNudgeSniffOnlyWhenNeeded(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	old := detectModel
+	t.Cleanup(func() { detectModel = old })
+	detectModel = func(string) string {
+		t.Fatal("transcript read when it should not be")
+		return ""
+	}
+	files := touch(t, dir, 5)
+	for _, f := range files[:4] {
+		nudge(t, nudgeCall{tool: "Write", path: f, transcript: "x"})
+	}
+	for _, f := range files {
+		nudge(t, nudgeCall{tool: "Write", path: f, transcript: "x", agentID: "sub"})
+	}
+	writeOverlay(t, cfg, `disabled = ["state-load"]`)
+	nudge(t, nudgeCall{tool: "Write", path: files[4], transcript: "x"})
+}
+
+func TestNudgeAitClause(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	writeOverlay(t, cfg, "[nudge]\ndirty_threshold = 1\n")
+	project := filepath.Join(dir, "proj")
+	os.MkdirAll(filepath.Join(project, ".ait"), 0o755)
+	os.MkdirAll(filepath.Join(project, "sub"), 0o755)
+	os.WriteFile(filepath.Join(project, ".ait", "ait.db"), nil, 0o644)
+	old := runCommand
+	t.Cleanup(func() { runCommand = old })
+	var gotArgs []string
+	reply := `{"issues":[{"id":"x-1","title":"First"},{"id":"x-2","title":"Second"}]}`
+	runCommand = func(_ context.Context, name string, args ...string) ([]byte, error) {
+		gotArgs = append([]string{name}, args...)
+		return []byte(reply), nil
+	}
+	f := touch(t, dir, 3)
+	got := nudge(t, nudgeCall{tool: "Write", path: f[0], cwd: filepath.Join(project, "sub")})
+	want := "\n\nAlso re-read your in-progress ait issues to re-anchor on the goal and acceptance criteria:\n" +
+		"- x-1: First (re-read with: ait show x-1)\n- x-2: Second (re-read with: ait show x-2)"
+	if !strings.HasSuffix(got, want) {
+		t.Errorf("message end:\n%q", got)
+	}
+	if fmt.Sprint(gotArgs) != fmt.Sprint([]string{"ait", "--db", filepath.Join(project, ".ait", "ait.db"), "list", "--status", "in_progress"}) {
+		t.Errorf("args = %v", gotArgs)
+	}
+	for _, r := range []string{`{"issues":[{"id":"x-1","title":"Only"}]}`, `{"issues":[]}`, `not json`} {
+		reply = r
+		nudge(t, nudgeCall{tool: "Read", path: f[0]})
+		got := nudge(t, nudgeCall{tool: "Write", path: f[0], cwd: project})
+		wantClause := r == `{"issues":[{"id":"x-1","title":"Only"}]}`
+		if strings.Contains(got, "in-progress ait") != wantClause {
+			t.Errorf("%s: %q", r, got)
+		}
+		if wantClause && !strings.Contains(got, "in-progress ait issue to") {
+			t.Errorf("singular noun: %q", got)
+		}
+	}
+	runCommand = func(context.Context, string, ...string) ([]byte, error) { return nil, errors.New("boom") }
+	nudge(t, nudgeCall{tool: "Read", path: f[0]})
+	if got := nudge(t, nudgeCall{tool: "Write", path: f[0], cwd: project}); strings.Contains(got, "ait") {
+		t.Errorf("failed command: %q", got)
+	}
+}
+
+func TestNudgePrunesOldState(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	stateDir := filepath.Join(cfg, "aec", "state")
+	os.MkdirAll(stateDir, 0o755)
+	old, young := filepath.Join(stateDir, "old.json"), filepath.Join(stateDir, "young.json")
+	for p, age := range map[string]time.Duration{old: 49 * time.Hour, young: time.Hour} {
+		os.WriteFile(p, []byte("{}"), 0o644)
+		when := now().Add(-age)
+		os.Chtimes(p, when, when)
+	}
+	files := touch(t, dir, 5)
+	for _, f := range files[:4] {
+		nudge(t, nudgeCall{tool: "Write", path: f})
+	}
+	if _, err := os.Stat(old); err != nil {
+		t.Fatal("pruned on a quiet call")
+	}
+	nudge(t, nudgeCall{tool: "Write", path: files[4]})
+	if _, err := os.Stat(old); err == nil {
+		t.Error("old state not pruned")
+	}
+	if _, err := os.Stat(young); err != nil {
+		t.Error("young state pruned")
+	}
+	if _, err := os.Stat(filepath.Join(stateDir, "sess-1.json")); err != nil {
+		t.Error("current state pruned")
+	}
+}
+
+func TestLookPathExpandsTilde(t *testing.T) {
+	home := t.TempDir()
+	os.MkdirAll(filepath.Join(home, "tools"), 0o755)
+	tool := filepath.Join(home, "tools", "aec-probe-tool")
+	os.WriteFile(tool, []byte("#!/bin/sh\n"), 0o755)
+	old := userHomeDir
+	userHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDir = old })
+	t.Setenv("PATH", "/nonexistent:~/tools")
+	if got := lookPath("aec-probe-tool"); got != tool {
+		t.Errorf("got %q, want %q", got, tool)
+	}
+	if got := lookPath("aec-missing-tool"); got != "aec-missing-tool" {
+		t.Errorf("missing: got %q", got)
 	}
 }

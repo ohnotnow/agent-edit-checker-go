@@ -74,7 +74,8 @@ func runNudge(stdin io.Reader, stdout io.Writer) {
 	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return
 	}
-	f, err := os.OpenFile(filepath.Join(stateDir, key+".json"), os.O_RDWR|os.O_CREATE, 0o644)
+	stateFile := filepath.Join(stateDir, key+".json")
+	f, err := os.OpenFile(stateFile, os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
 		return
 	}
@@ -106,12 +107,16 @@ func runNudge(stdin io.Reader, stdout io.Writer) {
 		}
 	}
 	state.prune(isRegularFile)
-	threshold := cfg.DirtyThreshold
-	dirtyFire, confidenceFire := state.evaluate(threshold, cfg.ConfidenceStreak)
-
 	enabled := func(name string) bool {
 		return slices.ContainsFunc(signals, func(s Signal) bool { return s.Name == name && s.Enabled })
 	}
+	threshold, model := cfg.DirtyThreshold, ""
+	if p.AgentID == "" && enabled("state-load") && len(state.Dirty) >= cfg.lowestThreshold() {
+		model = detectModel(p.TranscriptPath)
+		threshold = cfg.ThresholdFor(model)
+	}
+	dirtyFire, confidenceFire := state.evaluate(threshold, cfg.ConfidenceStreak)
+
 	testFire := false
 	if state.ratchetTests(cfg.TestFiles) && enabled("test-quality") {
 		if testAgentInstalled(cfg.TestAgent, byAge(state.TestFiles)[0]) {
@@ -128,9 +133,13 @@ func runNudge(stdin io.Reader, stdout io.Writer) {
 	var messages []string
 	if dirtyFire && enabled("state-load") {
 		messages = append(messages, stateLoadMessage(state, threshold, nowUnix))
-		label := "unknown"
-		if p.AgentID != "" {
+		label := model
+		switch {
+		case label != "":
+		case p.AgentID != "":
 			label = "subagent-default"
+		default:
+			label = "unknown"
 		}
 		appendLog(logFile, key,
 			"fired at "+strconv.Itoa(len(state.Dirty))+" (threshold "+strconv.Itoa(threshold)+", model "+label+")",
@@ -149,9 +158,11 @@ func runNudge(stdin io.Reader, stdout io.Writer) {
 	if len(messages) == 0 {
 		return
 	}
+	message := strings.Join(messages, "\n\n") + aitClause(p.Cwd)
+	pruneState(stateDir, stateFile)
 	out, err := json.Marshal(map[string]any{"hookSpecificOutput": map[string]string{
 		"hookEventName":     "PostToolUse",
-		"additionalContext": strings.Join(messages, "\n\n"),
+		"additionalContext": message,
 	}})
 	if err != nil {
 		return

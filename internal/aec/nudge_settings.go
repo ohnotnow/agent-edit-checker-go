@@ -38,6 +38,15 @@ func (s NudgeSettings) ThresholdFor(model string) int {
 	return threshold
 }
 
+// lowestThreshold is the smallest state-load threshold any model can get.
+func (s NudgeSettings) lowestThreshold() int {
+	lowest := s.DirtyThreshold
+	for _, v := range s.Models {
+		lowest = min(lowest, v)
+	}
+	return lowest
+}
+
 func (s NudgeSettings) validate() error {
 	for _, v := range []struct {
 		key string

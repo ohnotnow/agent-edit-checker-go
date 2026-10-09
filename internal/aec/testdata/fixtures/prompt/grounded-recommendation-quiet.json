@@ -1,0 +1,8 @@
+{
+  "rule": "grounded-recommendation",
+  "why": "recommended is not recommend",
+  "payload": {
+    "prompt": "see the recommended reading."
+  },
+  "expect": "quiet"
+}

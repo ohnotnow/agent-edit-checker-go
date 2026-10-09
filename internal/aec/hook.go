@@ -35,16 +35,21 @@ const (
 	hookEdit hookKind = iota
 	hookBash
 	hookToolFails
+	hookPrompt
 )
 
 // hookCommand wraps a hook as a command. The hooks take no arguments.
 func hookCommand(kind hookKind) command {
-	return func(args []string, stdin io.Reader, _, stderr io.Writer) error {
+	return func(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		if len(args) != 0 {
 			return usageErr("hook commands take no arguments")
 		}
-		if kind == hookToolFails {
+		switch kind {
+		case hookToolFails:
 			logToolFailure(stdin)
+			return nil
+		case hookPrompt:
+			runPrompt(stdin, stdout, stderr)
 			return nil
 		}
 		return runHook(kind, stdin, stderr)

@@ -1,0 +1,8 @@
+{
+  "rule": "verify-claims",
+  "why": "kk as its own word",
+  "payload": {
+    "prompt": "kk what is the current rate limit"
+  },
+  "expect": "inject"
+}

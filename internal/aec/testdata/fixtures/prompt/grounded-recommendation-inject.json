@@ -1,0 +1,8 @@
+{
+  "rule": "grounded-recommendation",
+  "why": "recommend, any case",
+  "payload": {
+    "prompt": "Recommend a library for this."
+  },
+  "expect": "inject"
+}

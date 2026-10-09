@@ -1,0 +1,8 @@
+{
+  "rule": "question-pause",
+  "why": "no question mark",
+  "payload": {
+    "prompt": "carry on with the work."
+  },
+  "expect": "quiet"
+}

@@ -1,0 +1,8 @@
+{
+  "rule": "grounded-recommendation",
+  "why": "which approach phrasing",
+  "payload": {
+    "prompt": "which approach is better here."
+  },
+  "expect": "inject"
+}

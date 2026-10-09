@@ -1,0 +1,8 @@
+{
+  "rule": "verify-claims",
+  "why": "kk inside a word does not count",
+  "payload": {
+    "prompt": "pack the backpack"
+  },
+  "expect": "quiet"
+}

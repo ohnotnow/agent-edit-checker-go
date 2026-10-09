@@ -110,6 +110,7 @@ var defaultRuleNames = []string{
 	"pest-compact", "composer-install", "npm-install", "pypi-install",
 	"env-access", "git-commit-attribution", "gh-pr-attribution",
 	"no-em-dash", "no-disguised-dash",
+	"question-pause", "verify-claims", "grounded-recommendation",
 }
 
 func TestDefaultRuleNamesAndOrder(t *testing.T) {

@@ -12,6 +12,7 @@ commands:
   hook bash    PreToolUse hook for the Bash matcher (payload on stdin)
   hook tool-fails
                PostToolUseFailure hook, logs failed tool calls (payload on stdin)
+  hook prompt  UserPromptSubmit hook, adds matching prompt rule messages to context
   rules list   Print the effective rules as TOML, annotated with their origin
   rules show <name>
                Print one default rule as TOML, ready to paste into the overlay
@@ -35,6 +36,7 @@ var commands = map[string]command{
 	"hook edit":       hookCommand(hookEdit),
 	"hook bash":       hookCommand(hookBash),
 	"hook tool-fails": hookCommand(hookToolFails),
+	"hook prompt":     hookCommand(hookPrompt),
 	"rules list":      rulesList,
 	"rules show":      rulesShow,
 	"rules diff":      rulesDiff,

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -16,6 +17,15 @@ type fixture struct {
 	Expect          string          `json:"expect"`
 	MessagesContain []string        `json:"messages_contain"`
 	SkipPHP         string          `json:"skip_php"`
+}
+
+// fixtureExpects lists the expect values each fixture kind accepts. Prompt
+// fixtures say whether a rule's message is injected, since prompt rules
+// never deny.
+var fixtureExpects = map[string][]string{
+	"edit":   {"allow", "deny"},
+	"bash":   {"allow", "deny"},
+	"prompt": {"inject", "quiet"},
 }
 
 func loadFixtures(t *testing.T, kind string) map[string]fixture {
@@ -35,8 +45,8 @@ func loadFixtures(t *testing.T, kind string) map[string]fixture {
 		if err := json.Unmarshal(data, &f); err != nil {
 			t.Fatalf("%s: %v", e.Name(), err)
 		}
-		if f.Expect != "allow" && f.Expect != "deny" {
-			t.Fatalf("%s: expect must be allow or deny, got %q", e.Name(), f.Expect)
+		if want := fixtureExpects[kind]; !slices.Contains(want, f.Expect) {
+			t.Fatalf("%s: expect must be one of %v, got %q", e.Name(), want, f.Expect)
 		}
 		out[e.Name()] = f
 	}
@@ -67,11 +77,28 @@ func TestFixtures(t *testing.T) {
 	}
 }
 
-func TestEveryDefaultRuleHasDenyFixture(t *testing.T) {
+func TestPromptFixtures(t *testing.T) {
+	useTempConfig(t)
+	for name, f := range loadFixtures(t, "prompt") {
+		t.Run("prompt/"+name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			code := Run([]string{"hook", "prompt"}, bytes.NewReader(f.Payload), &stdout, &stderr)
+			if code != 0 || stderr.Len() != 0 {
+				t.Fatalf("exit %d stderr %q", code, stderr.String())
+			}
+			injected := strings.Contains(stdout.String(), defaultRule(t, f.Rule).Message)
+			if injected != (f.Expect == "inject") {
+				t.Errorf("injected=%v, want %s (%s)\nstdout: %s", injected, f.Expect, f.Why, stdout.String())
+			}
+		})
+	}
+}
+
+func TestEveryDefaultRuleHasFiringFixture(t *testing.T) {
 	covered := map[string]bool{}
-	for _, kind := range []string{"edit", "bash"} {
+	for _, kind := range []string{"edit", "bash", "prompt"} {
 		for _, f := range loadFixtures(t, kind) {
-			if f.Expect == "deny" {
+			if f.Expect == "deny" || f.Expect == "inject" {
 				covered[f.Rule] = true
 			}
 		}
@@ -82,7 +109,7 @@ func TestEveryDefaultRuleHasDenyFixture(t *testing.T) {
 	}
 	for _, r := range rules {
 		if !covered[r.Name] {
-			t.Errorf("no deny fixture for %s", r.Name)
+			t.Errorf("no deny or inject fixture for %s", r.Name)
 		}
 	}
 }

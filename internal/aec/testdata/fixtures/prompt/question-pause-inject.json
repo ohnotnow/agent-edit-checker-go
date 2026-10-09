@@ -1,0 +1,8 @@
+{
+  "rule": "question-pause",
+  "why": "a question mark anywhere",
+  "payload": {
+    "prompt": "ready to go?"
+  },
+  "expect": "inject"
+}

@@ -141,3 +141,25 @@ files = ["*"]
 command = '/./s'
 pattern = '/&(?:mdash|ndash|horbar)\b;?|&#0*(?:821[0-3]|1183[45]|6507[34]|65112)\b;?|&#[xX]0*(?:201[2-5]|2E3[AB]|FE3[12]|FE58)\b;?|\\u\{?0*(?:201[2-5]|2E3[AB]|FE3[12]|FE58)\}?|\\x\{0*(?:201[2-5]|2E3[AB]|FE3[12]|FE58)\}|\\N\{(?:(?:EM|EN|FIGURE)[ _-]?DASH|HORIZONTAL[ _-]?BAR)\}|\\0*201[2-5]\b|\\x?e2\\x?80\\x?9[2-5]|\\342\\200\\22[2-5]|\b(?:mb_)?chr\s*\(\s*(?:821[0-3]|0x201[2-5])\s*\)|\bfromChar(?:Code|CodePoint)\s*\(\s*(?:821[0-3]|0x201[2-5])/i'
 message = '''That's a dash in disguise, whether an HTML entity, a string escape, or construction from the code point. Same answer: a plain hyphen, a comma, a colon, or two sentences. If the project is already littered with them, that is the user's call, not yours: ask them to run  D=$(php -r 'echo pack("H*","e28093")."|".pack("H*","e28094");'); git ls-files -z --cached --others --exclude-standard | LC_ALL=C xargs -0 grep -lIE --null "$D" | LC_ALL=C xargs -0 sed -i '' -E "s/$D/-/g"'''
+
+[[rules]]
+name = "question-pause"
+prompt = true
+pattern = '/\?/'
+message = '''
+A question mark slipped into this prompt - pause before you reach for a tool. Decide first: is the user asking to understand / weigh / decide, or telling you to change something?
+- Question, or you're not sure -> answer in words only this turn. Lay out the options, give your recommendation, then stop and ask if they want you to go ahead. No files touched, no tests written, no scaffolding spun up.
+- Build only on an unmistakable instruction in THIS message ("do it", "add the test", "go ahead"). A green light from an earlier turn does not carry forward.
+- If you're torn, treat it as a question. "What are the trade-offs?" is not a work order.'''
+
+[[rules]]
+name = "verify-claims"
+prompt = true
+pattern = '/\bkk\b/'
+message = '''A `kk` slipped into this prompt - verify before you answer. Judge the claim first: is it volatile (prices, versions, limits, anything "current"), specific (a number, date, a name), or something the user will act on? If so, check a real source before answering - web search and fetch the actual docs for external facts, the actual files or commands for local ones. Don't answer from memory, even when you're confident. Stable, conceptual knowledge you can answer directly. When you're unsure, verify. Cite where you checked each claim.'''
+
+[[rules]]
+name = "grounded-recommendation"
+prompt = true
+pattern = '/\b(recommend|how should (we|i)|which (option|approach)|what.?s your (thinking|take)|should (we|i) use)\b/i'
+message = '''This looks like you're being asked for a recommendation, an opinion, or a "which approach" call. If it touches this codebase, load the `grounded-recommendation` skill if available and read the relevant code first - don't recommend from memory or from what you assume the code does.'''

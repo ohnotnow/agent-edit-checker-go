@@ -65,7 +65,10 @@ func TestStarterExamplesAreValid(t *testing.T) {
 	if r := ruleByName(t, merged.Rules, "one-test-at-a-time"); r.Origin != OriginOverridden || r.MaxMatches == nil || *r.MaxMatches != 1 {
 		t.Errorf("one-test-at-a-time: origin=%v max_matches=%v", r.Origin, r.MaxMatches)
 	}
-	for _, name := range []string{"no-dd", "no-svn"} {
+	if r := ruleByName(t, merged.Rules, "british-english"); !r.Prompt || r.Pattern != "/.*/s" {
+		t.Errorf("british-english: prompt=%v pattern=%q", r.Prompt, r.Pattern)
+	}
+	for _, name := range []string{"no-dd", "no-svn", "british-english"} {
 		if r := ruleByName(t, merged.Rules, name); r.Origin != OriginUser {
 			t.Errorf("%s: origin=%v", name, r.Origin)
 		}

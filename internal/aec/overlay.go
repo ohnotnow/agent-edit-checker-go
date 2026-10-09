@@ -123,7 +123,7 @@ func LoadOverlay(path string) (*overlayFile, error) {
 }
 
 // starterExamples is the worked part of the starter overlay: valid TOML
-// showing the three things an overlay can do. It is shipped commented out.
+// showing the five things an overlay can do. It is shipped commented out.
 const starterExamples = `# 1. Switch a default off by name. aec rules list prints every rule and
 #    aec rules show <name> prints one. This project has no Sentry, so an
 #    agent throwing its own exceptions is fine here.
@@ -151,6 +151,18 @@ name = "no-svn"
 command = '/\bsvn\s/'
 pattern = '/\bsvn\s+(checkout|co|commit|ci|update|up)\b/'
 message = "It's 2026 - take a good look at yourself."
+
+# 5. Add a prompt rule. It runs on every prompt you submit and, when
+#    pattern matches, adds the message to the agent's context. It never
+#    blocks. This one matches every prompt, but text that should always
+#    apply usually belongs in CLAUDE.md, which the agent already sees
+#    every turn. For anything dynamic, add your own UserPromptSubmit hook
+#    script beside aec.
+[[rules]]
+name = "british-english"
+prompt = true
+pattern = '/.*/s'
+message = "Use British English spelling."
 `
 
 const starterHeader = `# aec overlay. The rules live in the aec binary; this file only lists
@@ -159,7 +171,8 @@ const starterHeader = `# aec overlay. The rules live in the aec binary; this fil
 # A rule is a regex plus a message. File rules check the content an agent
 # is about to write or edit; command rules check the Bash command it is
 # about to run. When a rule matches, aec blocks the action and shows the
-# agent the message.
+# agent the message. Prompt rules check the prompt you submit and add their
+# message to the agent's context instead of blocking.
 
 `
 

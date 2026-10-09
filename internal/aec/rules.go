@@ -101,6 +101,9 @@ func validateRule(r *Rule) error {
 	if !nameRe.MatchString(r.Name) {
 		return fmt.Errorf("rule %q: name must be lower-case kebab-case", r.Name)
 	}
+	if isSignalName(r.Name) {
+		return fmt.Errorf("rule %q: name is reserved for a nudge signal", r.Name)
+	}
 	fail := func(format string, args ...any) error {
 		return fmt.Errorf("rule %q: "+format, append([]any{r.Name}, args...)...)
 	}

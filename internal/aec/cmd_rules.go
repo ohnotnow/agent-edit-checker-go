@@ -26,7 +26,18 @@ func rulesList(args []string, _ io.Reader, stdout, stderr io.Writer) error {
 			return err
 		}
 	}
-	return emitNudge(stdout, merged.Nudge, merged.NudgeChanged)
+	if err := emitNudge(stdout, merged.Nudge, merged.NudgeChanged); err != nil {
+		return err
+	}
+	fmt.Fprintln(stdout)
+	for _, s := range merged.Signals {
+		state := "enabled"
+		if !s.Enabled {
+			state = "disabled"
+		}
+		fmt.Fprintf(stdout, "# signal %s: %s\n", s.Name, state)
+	}
+	return nil
 }
 
 // rulesShow prints one default rule as TOML, for pasting into the overlay.
@@ -97,7 +108,7 @@ func rulesDiff(args []string, _ io.Reader, stdout, stderr io.Writer) error {
 	var disabled []string
 	if ov != nil {
 		for _, name := range ov.Disabled {
-			if _, ok := byName[name]; ok {
+			if _, ok := byName[name]; ok || isSignalName(name) {
 				disabled = append(disabled, name)
 			}
 		}

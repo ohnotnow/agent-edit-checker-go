@@ -101,6 +101,7 @@ type Merged struct {
 	Rules []Rule   // defaults in file order, then user rules in overlay order
 	Stale []string // overlay names that match no default and do not form a complete rule
 
+	Signals      []Signal      // every nudge signal, enabled unless disabled
 	Nudge        NudgeSettings // effective nudge settings
 	NudgeChanged []string      // nudge keys the overlay gives, model keys as "models.<key>"
 }
@@ -222,7 +223,7 @@ func Merge(defaults []Rule, ov *overlayFile) (Merged, error) {
 		return Merged{}, err
 	}
 	if ov == nil {
-		return Merged{Rules: rules, Nudge: nudge}, nil
+		return Merged{Rules: rules, Signals: mergeSignals(nil), Nudge: nudge}, nil
 	}
 	index := make(map[string]int, len(rules))
 	for i, r := range rules {
@@ -238,6 +239,9 @@ func Merge(defaults []Rule, ov *overlayFile) (Merged, error) {
 			return Merged{}, fmt.Errorf("overlay rule %q: duplicate name", o.Name)
 		}
 		seen[o.Name] = true
+		if isSignalName(o.Name) {
+			return Merged{}, fmt.Errorf("overlay rule %q: name is reserved for a nudge signal", o.Name)
+		}
 
 		if j, ok := index[o.Name]; ok {
 			r := rules[j]
@@ -266,9 +270,9 @@ func Merge(defaults []Rule, ov *overlayFile) (Merged, error) {
 	for _, name := range ov.Disabled {
 		if j, ok := index[name]; ok {
 			rules[j].Enabled = false
-		} else if !slices.Contains(stale, name) {
+		} else if !isSignalName(name) && !slices.Contains(stale, name) {
 			stale = append(stale, name)
 		}
 	}
-	return Merged{Rules: rules, Stale: stale, Nudge: nudge, NudgeChanged: nudgeChanged}, nil
+	return Merged{Rules: rules, Stale: stale, Signals: mergeSignals(ov.Disabled), Nudge: nudge, NudgeChanged: nudgeChanged}, nil
 }

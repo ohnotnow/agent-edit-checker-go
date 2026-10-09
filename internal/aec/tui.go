@@ -3,6 +3,7 @@ package aec
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -30,19 +31,21 @@ func tui(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	m := tuiModel{rules: merged.Rules, path: path, width: 80, height: 24}
+	m := tuiModel{rules: merged.Rules, signals: merged.Signals, path: path, width: 80, height: 24}
 	_, err = tea.NewProgram(m, tea.WithAltScreen(), tea.WithInput(stdin), tea.WithOutput(stdout)).Run()
 	return err
 }
 
+// tuiModel lists the rules, then the nudge signals, as one list of rows.
 type tuiModel struct {
-	rules  []Rule
-	path   string
-	cursor int
-	width  int
-	height int
-	status string
-	failed bool
+	rules   []Rule
+	signals []Signal
+	path    string
+	cursor  int
+	width   int
+	height  int
+	status  string
+	failed  bool
 }
 
 func (m tuiModel) Init() tea.Cmd { return nil }
@@ -57,7 +60,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "j", "down":
-			if m.cursor < len(m.rules)-1 {
+			if m.cursor < len(m.rules)+len(m.signals)-1 {
 				m.cursor++
 			}
 		case "k", "up":
@@ -71,13 +74,25 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// toggle flips the current rule and writes the overlay. A failed write
-// puts the rule back and reports the error.
+// toggle flips the current row and writes the overlay. A failed write
+// puts the row back and reports the error.
 func (m tuiModel) toggle() tuiModel {
-	r := &m.rules[m.cursor]
-	r.Enabled = !r.Enabled
-	if err := WriteDisabled(m.path, disabledNames(m.rules)); err != nil {
-		r.Enabled = !r.Enabled
+	var enabled *bool
+	if m.cursor < len(m.rules) {
+		enabled = &m.rules[m.cursor].Enabled
+	} else {
+		m.signals = slices.Clone(m.signals)
+		enabled = &m.signals[m.cursor-len(m.rules)].Enabled
+	}
+	*enabled = !*enabled
+	names := disabledNames(m.rules)
+	for _, s := range m.signals {
+		if !s.Enabled {
+			names = append(names, s.Name)
+		}
+	}
+	if err := WriteDisabled(m.path, names); err != nil {
+		*enabled = !*enabled
 		m.status, m.failed = "write failed: "+err.Error(), true
 		return m
 	}
@@ -108,7 +123,7 @@ func (m tuiModel) View() string {
 	if m.cursor >= visible {
 		offset = m.cursor - visible + 1
 	}
-	for i := offset; i < len(m.rules) && i < offset+visible; i++ {
+	for i := offset; i < len(m.rules)+len(m.signals) && i < offset+visible; i++ {
 		b.WriteString(m.row(i) + "\n")
 	}
 
@@ -130,25 +145,32 @@ func (m tuiModel) View() string {
 }
 
 func (m tuiModel) row(i int) string {
-	r := m.rules[i]
+	var name, text, tag string
+	var enabled, changed bool
+	if i < len(m.rules) {
+		r := m.rules[i]
+		name, enabled = r.Name, r.Enabled
+		text, _, _ = strings.Cut(r.Message, "\n")
+		if r.Origin != OriginDefault {
+			tag = " (" + r.Origin.String() + ")"
+		}
+		changed = !r.Enabled || r.Origin != OriginDefault
+	} else {
+		s := m.signals[i-len(m.rules)]
+		name, enabled, text, changed = s.Name, s.Enabled, s.Summary, !s.Enabled
+	}
 	mark := "[x]"
-	if !r.Enabled {
+	if !enabled {
 		mark = "[ ]"
 	}
-	tag := ""
-	if r.Origin != OriginDefault {
-		tag = " (" + r.Origin.String() + ")"
-	}
-	head := fmt.Sprintf("%s %-24s%s", mark, r.Name, tag)
+	head := fmt.Sprintf("%s %-24s%s", mark, name, tag)
 	room := m.width - lipgloss.Width(head) - 4
-	first, _, _ := strings.Cut(r.Message, "\n")
-	msg := truncate(first, room)
+	msg := truncate(text, room)
 
 	prefix := "  "
 	if i == m.cursor {
 		prefix = "> "
 	}
-	changed := !r.Enabled || r.Origin != OriginDefault
 	line := head + "  " + msg
 	switch {
 	case i == m.cursor:

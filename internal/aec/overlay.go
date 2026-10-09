@@ -58,12 +58,13 @@ type overlayRule struct {
 	Message    *string   `toml:"message"`
 	Files      *[]string `toml:"files"`
 	Command    *string   `toml:"command"`
+	Prompt     *bool     `toml:"prompt"`
 	Type       *string   `toml:"type"`
 	MaxMatches *int      `toml:"max_matches"`
 }
 
 func (o overlayRule) complete() bool {
-	return o.Pattern != nil && o.Message != nil && (o.Files != nil || o.Command != nil)
+	return o.Pattern != nil && o.Message != nil && (o.Files != nil || o.Command != nil || o.Prompt != nil && *o.Prompt)
 }
 
 // apply copies the keys the overlay gives onto r and reports whether any
@@ -81,6 +82,9 @@ func (o overlayRule) apply(r *Rule) bool {
 	}
 	if o.Command != nil {
 		r.Command, changed = *o.Command, true
+	}
+	if o.Prompt != nil {
+		r.Prompt, changed = *o.Prompt, true
 	}
 	if o.Type != nil {
 		r.Type, changed = *o.Type, true

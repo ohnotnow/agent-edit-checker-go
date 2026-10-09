@@ -160,3 +160,10 @@ func TestRulesDiffStaleWarning(t *testing.T) {
 		t.Errorf("stdout=%q stderr=%q", stdout, stderr)
 	}
 }
+
+func TestRuleDiffPrompt(t *testing.T) {
+	got := ruleDiff(Rule{Prompt: true}, Rule{})
+	if len(got) != 1 || got[0] != (keyDiff{"prompt", "true", ""}) {
+		t.Errorf("got %+v", got)
+	}
+}

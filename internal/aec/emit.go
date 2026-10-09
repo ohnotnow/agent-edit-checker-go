@@ -8,8 +8,8 @@ import (
 )
 
 // emitRule writes r as one [[rules]] block followed by a blank line. Keys
-// appear in this order and only when set: name, files, command, type,
-// pattern, max_matches, message. Patterns are literal strings so they
+// appear in this order and only when set: name, files, command, prompt,
+// type, pattern, max_matches, message. Patterns are literal strings so they
 // paste back into an overlay unchanged.
 func emitRule(w io.Writer, r Rule) error {
 	var b strings.Builder
@@ -28,6 +28,9 @@ func emitRule(w io.Writer, r Rule) error {
 			return fmt.Errorf("rule %q: command: %w", r.Name, err)
 		}
 		fmt.Fprintf(&b, "command = %s\n", s)
+	}
+	if r.Prompt {
+		b.WriteString("prompt = true\n")
 	}
 	if r.Type != "" {
 		fmt.Fprintf(&b, "type = %s\n", basicString(r.Type))
@@ -74,13 +77,21 @@ func basicString(s string) string {
 	return `"` + s + `"`
 }
 
-// messageString quotes a message. Messages with a double quote use the
-// literal form so they read as written; the rest are basic strings.
+// messageString quotes a message. Messages with line breaks use the
+// multi-line literal form, opening on a line of its own; messages with a
+// double quote use the literal form so they read as written; the rest are
+// basic strings.
 func messageString(s string) (string, error) {
 	for _, c := range s {
-		if c < 0x20 || c == 0x7f {
+		if c != '\n' && (c < 0x20 || c == 0x7f) {
 			return "", fmt.Errorf("value contains control character %s", strconv.QuoteRune(c))
 		}
+	}
+	if strings.Contains(s, "\n") {
+		if strings.Contains(s, "'''") {
+			return "", fmt.Errorf("multi-line value contains '''")
+		}
+		return "'''\n" + s + "'''", nil
 	}
 	if strings.Contains(s, `"`) {
 		if lit, err := literalString(s); err == nil {

@@ -141,7 +141,8 @@ func (m tuiModel) row(i int) string {
 	}
 	head := fmt.Sprintf("%s %-24s%s", mark, r.Name, tag)
 	room := m.width - lipgloss.Width(head) - 4
-	msg := truncate(r.Message, room)
+	first, _, _ := strings.Cut(r.Message, "\n")
+	msg := truncate(first, room)
 
 	prefix := "  "
 	if i == m.cursor {

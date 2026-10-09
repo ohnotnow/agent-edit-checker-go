@@ -117,11 +117,19 @@ func ruleDiff(a, b Rule) []keyDiff {
 	}
 	add("files", strings.Join(a.Files, ", "), strings.Join(b.Files, ", "))
 	add("command", a.Command, b.Command)
+	add("prompt", promptKey(a), promptKey(b))
 	add("type", ruleType(a), ruleType(b))
 	add("pattern", a.Pattern, b.Pattern)
 	add("max_matches", maxMatches(a), maxMatches(b))
 	add("message", a.Message, b.Message)
 	return out
+}
+
+func promptKey(r Rule) string {
+	if r.Prompt {
+		return "true"
+	}
+	return ""
 }
 
 func ruleType(r Rule) string {

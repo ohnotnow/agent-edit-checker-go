@@ -14,13 +14,16 @@ var defaultRulesTOML []byte
 
 // Rule is one check. Files names the file types the rule runs on for
 // Write/Edit content; Command is a PHP-style regex a Bash command must match
-// for the rule to be consulted. A rule may set both.
+// for the rule to be consulted. A rule may set both. Prompt marks a rule that
+// matches the submitted prompt and adds its message to the agent's context;
+// it never blocks and cannot be combined with Files or Command.
 type Rule struct {
 	Name       string   `toml:"name"`
 	Pattern    string   `toml:"pattern"`
 	Message    string   `toml:"message"`
 	Files      []string `toml:"files"`       // "php", ".blade.php", "migration.php", "*"
 	Command    string   `toml:"command"`     // PHP-style regex the Bash command must match
+	Prompt     bool     `toml:"prompt"`      // matches the submitted prompt; never blocks
 	Type       string   `toml:"type"`        // "forbid" (default when empty) or "require"; command rules only
 	MaxMatches *int     `toml:"max_matches"` // files only; nil means any match blocks
 
@@ -106,8 +109,11 @@ func validateRule(r *Rule) error {
 	if r.Message == "" {
 		return fail("message is empty")
 	}
-	if len(r.Files) == 0 && r.Command == "" {
-		return fail("needs at least one of files or command")
+	if len(r.Files) == 0 && r.Command == "" && !r.Prompt {
+		return fail("needs one of files, command or prompt")
+	}
+	if r.Prompt && (len(r.Files) > 0 || r.Command != "") {
+		return fail("prompt rules cannot also have files or command")
 	}
 	switch r.Type {
 	case "", "forbid":

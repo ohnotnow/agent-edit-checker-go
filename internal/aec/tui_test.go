@@ -75,3 +75,11 @@ func TestTuiWriteFailureRevertsToggle(t *testing.T) {
 		t.Errorf("enabled=%v failed=%v status=%q", m.rules[0].Enabled, m.failed, m.status)
 	}
 }
+
+func TestTuiRowShowsFirstLineOfMessage(t *testing.T) {
+	m := tuiModel{rules: []Rule{{Name: "ask", Enabled: true, Message: "first line\nsecond line"}}, width: 80}
+	row := m.row(0)
+	if strings.Contains(row, "\n") || strings.Contains(row, "second") || !strings.Contains(row, "first line") {
+		t.Errorf("row = %q", row)
+	}
+}

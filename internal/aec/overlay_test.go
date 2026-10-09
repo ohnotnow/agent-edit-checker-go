@@ -184,11 +184,42 @@ message = "x"
 	}
 }
 
+func TestMergePromptRules(t *testing.T) {
+	m := mustMerge(t, `
+[[rules]]
+name = "mine"
+prompt = true
+pattern = '/\bdeploy\b/'
+message = "Check the runbook first."
+`)
+	mine := m.Rules[len(m.Rules)-1]
+	if mine.Name != "mine" || !mine.Prompt || mine.Origin != OriginUser || len(m.Stale) != 0 {
+		t.Fatalf("user prompt rule: %+v stale=%v", mine, m.Stale)
+	}
+
+	defaults, err := parseRules([]byte("[[rules]]\nname='ask'\nprompt=true\npattern='/x/'\nmessage='m'\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err = Merge(defaults, decodeOverlay(t, "[[rules]]\nname = \"ask\"\npattern = '/y/'\nmessage = \"n\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := m.Rules[0]; !r.Prompt || r.Pattern != "/y/" || r.Message != "n" || r.Origin != OriginOverridden {
+		t.Errorf("overridden prompt rule: %+v", r)
+	}
+
+	_, err = Merge(defaults, decodeOverlay(t, "[[rules]]\nname = \"ask\"\nfiles = ['php']\n"))
+	if err == nil || !strings.Contains(err.Error(), "prompt rules cannot also have") {
+		t.Errorf("adding files to a prompt rule: err=%v", err)
+	}
+}
+
 func TestMergeErrors(t *testing.T) {
 	cases := []struct{ label, src, want string }{
 		{"bad regex", "[[rules]]\nname = \"no-try-catch\"\npattern = '/(/'\n", `rule "no-try-catch"`},
 		{"unknown flag", "[[rules]]\nname = \"no-try-catch\"\npattern = '/x/z'\n", `'z'`},
-		{"files emptied", "[[rules]]\nname = \"no-try-catch\"\nfiles = []\n", `rule "no-try-catch": needs at least one`},
+		{"files emptied", "[[rules]]\nname = \"no-try-catch\"\nfiles = []\n", `rule "no-try-catch": needs one of files, command or prompt`},
 		{"bad type", "[[rules]]\nname = \"npm-install\"\ntype = \"maybe\"\n", `rule "npm-install": type "maybe"`},
 		{"duplicate", "[[rules]]\nname = \"a\"\n[[rules]]\nname = \"a\"\n", `rule "a": duplicate`},
 		{"nameless", "[[rules]]\nname = \"a\"\n[[rules]]\nmessage = \"m\"\n", "rules[1] has no name"},

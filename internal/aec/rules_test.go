@@ -53,7 +53,12 @@ func TestParseRulesValidation(t *testing.T) {
 		{"duplicate name", validRule + validRule, `rule "ok": duplicate name`},
 		{"empty pattern", "[[rules]]\nname='p'\nfiles=['php']\nmessage='m'\n", `rule "p": pattern is empty`},
 		{"empty message", "[[rules]]\nname='p'\nfiles=['php']\npattern='/x/'\n", `rule "p": message is empty`},
-		{"no files or command", "[[rules]]\nname='p'\npattern='/x/'\nmessage='m'\n", `rule "p": needs at least one of files or command`},
+		{"no files or command", "[[rules]]\nname='p'\npattern='/x/'\nmessage='m'\n", `rule "p": needs one of files, command or prompt`},
+		{"prompt false only", "[[rules]]\nname='p'\nprompt=false\npattern='/x/'\nmessage='m'\n", `rule "p": needs one of files, command or prompt`},
+		{"prompt with files", "[[rules]]\nname='p'\nprompt=true\nfiles=['php']\npattern='/x/'\nmessage='m'\n", `rule "p": prompt rules cannot also have files or command`},
+		{"prompt with command", "[[rules]]\nname='p'\nprompt=true\ncommand='/x/'\npattern='/x/'\nmessage='m'\n", `rule "p": prompt rules cannot also have files or command`},
+		{"prompt with require", "[[rules]]\nname='p'\nprompt=true\ntype='require'\npattern='/x/'\nmessage='m'\n", `rule "p": type "require" needs command`},
+		{"prompt with max_matches", "[[rules]]\nname='p'\nprompt=true\nmax_matches=1\npattern='/x/'\nmessage='m'\n", `rule "p": max_matches needs files`},
 		{"bad type", "[[rules]]\nname='p'\ncommand='/x/'\ntype='maybe'\npattern='/x/'\nmessage='m'\n", `rule "p": type "maybe" must be`},
 		{"require without command", "[[rules]]\nname='p'\nfiles=['php']\ntype='require'\npattern='/x/'\nmessage='m'\n", `rule "p": type "require" needs command`},
 		{"max_matches without files", "[[rules]]\nname='p'\ncommand='/x/'\nmax_matches=1\npattern='/x/'\nmessage='m'\n", `rule "p": max_matches needs files`},
@@ -70,6 +75,22 @@ func TestParseRulesValidation(t *testing.T) {
 				t.Errorf("error %q does not contain %q", err.Error(), c.want)
 			}
 		})
+	}
+}
+
+func TestParseRulesPrompt(t *testing.T) {
+	rules, err := parseRules([]byte("[[rules]]\nname='ask'\nprompt=true\npattern='/\\?/'\nmessage='m'\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rules[0].Prompt {
+		t.Errorf("prompt not set: %+v", rules[0])
+	}
+	if got := CheckContent(rules, "*", "?", ""); len(got) != 0 {
+		t.Errorf("CheckContent fired a prompt rule: %v", got)
+	}
+	if got := CheckCommand(rules, "echo ?"); len(got) != 0 {
+		t.Errorf("CheckCommand fired a prompt rule: %v", got)
 	}
 }
 

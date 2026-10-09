@@ -24,7 +24,7 @@ func sameRule(a, b Rule) bool {
 		return false
 	}
 	return a.Name == b.Name && a.Pattern == b.Pattern && a.Message == b.Message &&
-		a.Command == b.Command && a.Type == b.Type && slices.Equal(a.Files, b.Files)
+		a.Command == b.Command && a.Prompt == b.Prompt && a.Type == b.Type && slices.Equal(a.Files, b.Files)
 }
 
 func TestEmitRoundTripsDefaults(t *testing.T) {
@@ -71,9 +71,36 @@ func TestEmitKeyOrderAndDelimiters(t *testing.T) {
 	}
 }
 
+func TestEmitPromptRule(t *testing.T) {
+	out := emitOne(t, Rule{Name: "ask", Prompt: true, Pattern: `/\?/`, Message: "first line\n- it's \"quoted\"\n\n- last"})
+	want := "[[rules]]\n" +
+		"name = \"ask\"\n" +
+		"prompt = true\n" +
+		"pattern = '/\\?/'\n" +
+		"message = '''\nfirst line\n- it's \"quoted\"\n\n- last'''\n\n"
+	if out != want {
+		t.Errorf("got:\n%s\nwant:\n%s", out, want)
+	}
+}
+
+func TestEmitMultiLineMessages(t *testing.T) {
+	cases := []string{"a\nb", "\nleading newline", "trailing newline\n", "ends with '\nquote'", "back\\slash\n\"q\""}
+	for _, msg := range cases {
+		out := emitOne(t, Rule{Name: "m", Prompt: true, Pattern: `/x/`, Message: msg})
+		back, err := parseRules([]byte(out))
+		if err != nil {
+			t.Errorf("%q: parse: %v\n%s", msg, err, out)
+			continue
+		}
+		if back[0].Message != msg {
+			t.Errorf("%q came back as %q\n%s", msg, back[0].Message, out)
+		}
+	}
+}
+
 func TestEmitOmitsUnsetKeys(t *testing.T) {
 	out := emitOne(t, Rule{Name: "b", Command: `/c/`, Pattern: `/p/`, Message: "m"})
-	for _, absent := range []string{"files", "type", "max_matches"} {
+	for _, absent := range []string{"files", "prompt", "type", "max_matches"} {
 		if strings.Contains(out, absent) {
 			t.Errorf("%q should be omitted:\n%s", absent, out)
 		}
@@ -104,7 +131,9 @@ func TestEmitErrors(t *testing.T) {
 		rule  Rule
 		want  string
 	}{
-		{"newline in message", Rule{Name: "n", Files: []string{"php"}, Pattern: `/x/`, Message: "a\nb"}, `rule "n": message`},
+		{"tab in message", Rule{Name: "n", Files: []string{"php"}, Pattern: `/x/`, Message: "a\tb"}, `rule "n": message`},
+		{"tab in multi-line message", Rule{Name: "n", Prompt: true, Pattern: `/x/`, Message: "a\n\tb"}, `rule "n": message`},
+		{"triple quote in multi-line message", Rule{Name: "n", Prompt: true, Pattern: `/x/`, Message: "a\n'''b"}, `rule "n": message`},
 		{"pattern ends with quote", Rule{Name: "p", Files: []string{"php"}, Pattern: `/x'/'`, Message: "m"}, `rule "p": pattern`},
 		{"triple quote in command", Rule{Name: "c", Command: `/'''/`, Pattern: `/x/`, Message: "m"}, `rule "c": command`},
 	}

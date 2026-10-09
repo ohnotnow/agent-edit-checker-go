@@ -10,6 +10,8 @@ const usage = `usage: aec <command>
 commands:
   hook edit    PreToolUse hook for the Write|Edit matcher (payload on stdin)
   hook bash    PreToolUse hook for the Bash matcher (payload on stdin)
+  hook tool-fails
+               PostToolUseFailure hook, logs failed tool calls (payload on stdin)
   rules list   Print the effective rules as TOML, annotated with their origin
   rules show <name>
                Print one default rule as TOML, ready to paste into the overlay
@@ -30,15 +32,16 @@ type command func(args []string, stdin io.Reader, stdout, stderr io.Writer) erro
 var groups = map[string]bool{"hook": true, "rules": true}
 
 var commands = map[string]command{
-	"hook edit":   hookCommand(hookEdit),
-	"hook bash":   hookCommand(hookBash),
-	"rules list":  rulesList,
-	"rules show":  rulesShow,
-	"rules diff":  rulesDiff,
-	"tui":         tui,
-	"install":     install,
-	"version":     version,
-	"self-update": selfUpdate,
+	"hook edit":       hookCommand(hookEdit),
+	"hook bash":       hookCommand(hookBash),
+	"hook tool-fails": hookCommand(hookToolFails),
+	"rules list":      rulesList,
+	"rules show":      rulesShow,
+	"rules diff":      rulesDiff,
+	"tui":             tui,
+	"install":         install,
+	"version":         version,
+	"self-update":     selfUpdate,
 }
 
 // Run dispatches a command line and returns the process exit code.

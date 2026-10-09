@@ -27,18 +27,28 @@ func CheckCommand(rules []Rule, command string) []string {
 var logLineReplacer = strings.NewReplacer("\r", `\r`, "\n", `\n`)
 
 // LogDecision appends "<timestamp> | allowed | cmd" or
-// "<timestamp> | denied | cmd" to the log at logPath, the timestamp in
-// RFC 3339 local time. Best effort: any error is ignored so logging can never change
-// the decision.
+// "<timestamp> | denied | cmd" to the log at logPath. Best effort: any
+// error is ignored so logging can never change the decision.
 func LogDecision(logPath string, denied bool, command string) {
 	decision := "allowed"
 	if denied {
 		decision = "denied"
 	}
+	appendLog(logPath, decision, command)
+}
+
+// appendLog appends one line to the log at logPath: the RFC 3339 local
+// time, then each field, separated by " | ", with CR and LF in the fields
+// written as \r and \n. Best effort: any error is ignored.
+func appendLog(logPath string, fields ...string) {
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	_, _ = f.WriteString(now().Format(time.RFC3339) + " | " + decision + " | " + logLineReplacer.Replace(command) + "\n")
+	line := now().Format(time.RFC3339)
+	for _, field := range fields {
+		line += " | " + logLineReplacer.Replace(field)
+	}
+	_, _ = f.WriteString(line + "\n")
 }

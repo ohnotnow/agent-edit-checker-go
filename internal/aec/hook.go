@@ -34,13 +34,18 @@ type hookKind int
 const (
 	hookEdit hookKind = iota
 	hookBash
+	hookToolFails
 )
 
-// hookCommand wraps runHook as a command. The hooks take no arguments.
+// hookCommand wraps a hook as a command. The hooks take no arguments.
 func hookCommand(kind hookKind) command {
 	return func(args []string, stdin io.Reader, _, stderr io.Writer) error {
 		if len(args) != 0 {
 			return usageErr("hook commands take no arguments")
+		}
+		if kind == hookToolFails {
+			logToolFailure(stdin)
+			return nil
 		}
 		return runHook(kind, stdin, stderr)
 	}
@@ -103,11 +108,20 @@ func loadMerged(defaults []Rule) (Merged, error) {
 }
 
 func logCommand(denied bool, command string) {
+	if path, ok := logPath("tool-use.log"); ok {
+		LogDecision(path, denied, command)
+	}
+}
+
+// logPath returns the path of the named log in the aec config directory,
+// creating the directory if needed. ok is false when there is no config
+// directory.
+func logPath(name string) (path string, ok bool) {
 	dir, err := configDir()
 	if err != nil {
-		return
+		return "", false
 	}
 	dir = filepath.Join(dir, "aec")
 	_ = os.MkdirAll(dir, 0o755)
-	LogDecision(filepath.Join(dir, "tool-use.log"), denied, command)
+	return filepath.Join(dir, name), true
 }

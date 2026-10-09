@@ -66,7 +66,8 @@ func TestRulesListAnnotations(t *testing.T) {
 			t.Errorf("missing %q in:\n%s", want, stdout)
 		}
 	}
-	if !strings.HasSuffix(strings.TrimSpace(stdout), "message = \"no panics\"") {
+	rulesPart, _, _ := strings.Cut(stdout, "# nudge settings\n")
+	if !strings.HasSuffix(strings.TrimSpace(rulesPart), "message = \"no panics\"") {
 		t.Errorf("user rule should come last:\n%s", stdout)
 	}
 }

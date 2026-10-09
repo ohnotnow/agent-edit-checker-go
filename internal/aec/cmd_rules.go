@@ -26,7 +26,7 @@ func rulesList(args []string, _ io.Reader, stdout, stderr io.Writer) error {
 			return err
 		}
 	}
-	return nil
+	return emitNudge(stdout, merged.Nudge, merged.NudgeChanged)
 }
 
 // rulesShow prints one default rule as TOML, for pasting into the overlay.
@@ -81,6 +81,18 @@ func rulesDiff(args []string, _ io.Reader, stdout, stderr io.Writer) error {
 			}
 			fmt.Fprintln(stdout)
 		}
+	}
+	if len(merged.NudgeChanged) > 0 {
+		changed = true
+		defaultNudge, err := LoadDefaultNudge()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(stdout, "nudge")
+		for _, d := range nudgeDiff(defaultNudge, merged.Nudge, merged.NudgeChanged) {
+			fmt.Fprintf(stdout, "  %s\n    default:  %s\n    override: %s\n", d.key, d.before, d.after)
+		}
+		fmt.Fprintln(stdout)
 	}
 	var disabled []string
 	if ov != nil {

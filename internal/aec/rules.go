@@ -59,7 +59,8 @@ func (o Origin) String() string {
 type RuleSet []Rule
 
 type rulesFile struct {
-	Rules []Rule `toml:"rules"`
+	Rules []Rule        `toml:"rules"`
+	Nudge NudgeSettings `toml:"nudge"`
 }
 
 var nameRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)

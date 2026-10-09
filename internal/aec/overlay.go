@@ -44,6 +44,7 @@ func OverlayPath() (string, error) {
 type overlayFile struct {
 	Disabled []string      `toml:"disabled"`
 	Rules    []overlayRule `toml:"rules"`
+	Nudge    overlayNudge  `toml:"nudge"`
 
 	// Undecoded lists keys in the file that nothing above reads, such as
 	// a misspelt key or an enabled flag inside a rule block.
@@ -99,6 +100,9 @@ func (o overlayRule) apply(r *Rule) bool {
 type Merged struct {
 	Rules []Rule   // defaults in file order, then user rules in overlay order
 	Stale []string // overlay names that match no default and do not form a complete rule
+
+	Nudge        NudgeSettings // effective nudge settings
+	NudgeChanged []string      // nudge keys the overlay gives, model keys as "models.<key>"
 }
 
 // LoadOverlay decodes the overlay at path. A missing file is not an error:
@@ -213,8 +217,12 @@ func ensureOverlay(path string) (bool, error) {
 // Merge applies the overlay to the defaults by rule name.
 func Merge(defaults []Rule, ov *overlayFile) (Merged, error) {
 	rules := slices.Clone(defaults)
+	nudge, nudgeChanged, err := mergeNudge(ov)
+	if err != nil {
+		return Merged{}, err
+	}
 	if ov == nil {
-		return Merged{Rules: rules}, nil
+		return Merged{Rules: rules, Nudge: nudge}, nil
 	}
 	index := make(map[string]int, len(rules))
 	for i, r := range rules {
@@ -262,5 +270,5 @@ func Merge(defaults []Rule, ov *overlayFile) (Merged, error) {
 			stale = append(stale, name)
 		}
 	}
-	return Merged{Rules: rules, Stale: stale}, nil
+	return Merged{Rules: rules, Stale: stale, Nudge: nudge, NudgeChanged: nudgeChanged}, nil
 }

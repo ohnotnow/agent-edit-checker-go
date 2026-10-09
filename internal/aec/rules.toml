@@ -163,3 +163,15 @@ name = "grounded-recommendation"
 prompt = true
 pattern = '/\b(recommend|how should (we|i)|which (option|approach)|what.?s your (thinking|take)|should (we|i) use)\b/i'
 message = '''This looks like you're being asked for a recommendation, an opinion, or a "which approach" call. If it touches this codebase, load the `grounded-recommendation` skill if available and read the relevant code first - don't recommend from memory or from what you assume the code does.'''
+
+[nudge]
+dirty_threshold = 5
+confidence_streak = 12
+test_files = 8
+test_agent = "test-quality-checker"
+
+[nudge.models]
+haiku = 5
+opus = 7
+fable = 10
+mythos = 10

@@ -119,7 +119,7 @@ func runNudge(stdin io.Reader, stdout io.Writer) {
 
 	testFire := false
 	if state.ratchetTests(cfg.TestFiles) && enabled("test-quality") {
-		if testAgentInstalled(cfg.TestAgent, byAge(state.TestFiles)[0]) {
+		if testAgentInstalled(cfg.TestAgent, filepath.Dir(byAge(state.TestFiles)[0])) {
 			testFire = true
 			state.TestFired++
 		} else {
@@ -215,13 +215,13 @@ func writeNudgeState(f *os.File, s *nudgeState) error {
 }
 
 // testAgentInstalled reports whether the reviewer agent's file exists in
-// the global agents folder or in the Laravel project of testFile.
-func testAgentInstalled(agent, testFile string) bool {
+// the global agents folder or in the Laravel project holding dir.
+func testAgentInstalled(agent, dir string) bool {
 	file := filepath.Join(".claude", "agents", agent+".md")
 	if home, err := userHomeDir(); err == nil && home != "" && isRegularFile(filepath.Join(home, file)) {
 		return true
 	}
-	root, ok := findUp(filepath.Dir(testFile), "artisan")
+	root, ok := findUp(dir, "artisan")
 	return ok && isRegularFile(filepath.Join(root, file))
 }
 

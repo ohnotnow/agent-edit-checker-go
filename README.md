@@ -76,7 +76,9 @@ Restart Claude Code, or start a new session, for the hooks to take effect.
 
 ### Switching things off
 
-`aec tui` lists every rule and nudge signal. Press space to toggle one (j/k move, q quits). The change is written straight away, so the next tool call sees it.
+`aec tui` lists every rule and nudge signal, grouped under blocking rules, prompt rules and nudges. Press space to toggle one (j/k move, q quits). The change is written straight away, so the next tool call sees it.
+
+Under each nudge is its effective threshold, highlighted when your overlay changes it. If the `test-quality` reviewer agent cannot be found globally or in the current project, the TUI says so, since that signal stays quiet without it.
 
 ### The overlay
 

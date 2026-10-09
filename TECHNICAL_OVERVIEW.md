@@ -1,6 +1,6 @@
 # Technical Overview
 
-Last updated: 2026-10-09
+Last updated: 2026-10-10
 
 ## What This Is
 
@@ -95,7 +95,7 @@ Dispatch table in `app.go` (`commands`, with `hook` and `rules` as two-word grou
 | Command | File |
 |---------|------|
 | `rules list` / `show <name>` / `diff` | `cmd_rules.go`, TOML output via `emit.go` |
-| `tui` | `tui.go`; writes only the `disabled` line via `overlay_write.go` (`setDisabled`, verifies read-back) |
+| `tui` | `tui.go`; rows grouped blocking / prompt / nudges (`newTuiModel`, headings added in `lines`), each nudge row followed by a read-only threshold line (`detail`), which also warns when `testAgentInstalled` fails for the cwd. Writes only the `disabled` line via `overlay_write.go` (`setDisabled`, verifies read-back) |
 | `install` | `cmd_install.go`; backs up settings, never touches non-aec hooks, reports leftover PHP hooks |
 | `version`, `self-update` | `version.go`, `cmd_self_update.go`; GitHub releases, SHA256SUMS check, atomic swap, defers to Homebrew/`go install` |
 

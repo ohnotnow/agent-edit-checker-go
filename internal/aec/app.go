@@ -13,6 +13,7 @@ commands:
   hook tool-fails
                PostToolUseFailure hook, logs failed tool calls (payload on stdin)
   hook prompt  UserPromptSubmit hook, adds matching prompt rule messages to context
+  hook nudge   PostToolUse hook, nudges the agent to re-read and review (payload on stdin)
   rules list   Print the effective rules as TOML, annotated with their origin
   rules show <name>
                Print one default rule as TOML, ready to paste into the overlay
@@ -37,6 +38,7 @@ var commands = map[string]command{
 	"hook bash":       hookCommand(hookBash),
 	"hook tool-fails": hookCommand(hookToolFails),
 	"hook prompt":     hookCommand(hookPrompt),
+	"hook nudge":      hookCommand(hookNudge),
 	"rules list":      rulesList,
 	"rules show":      rulesShow,
 	"rules diff":      rulesDiff,

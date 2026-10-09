@@ -36,6 +36,7 @@ const (
 	hookBash
 	hookToolFails
 	hookPrompt
+	hookNudge
 )
 
 // hookCommand wraps a hook as a command. The hooks take no arguments.
@@ -50,6 +51,9 @@ func hookCommand(kind hookKind) command {
 			return nil
 		case hookPrompt:
 			runPrompt(stdin, stdout, stderr)
+			return nil
+		case hookNudge:
+			runNudge(stdin, stdout)
 			return nil
 		}
 		return runHook(kind, stdin, stderr)

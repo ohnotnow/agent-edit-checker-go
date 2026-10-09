@@ -281,3 +281,158 @@ func TestMinutesAgo(t *testing.T) {
 		}
 	}
 }
+
+// laravelApp makes <dir>/app with an artisan file and n test files under
+// tests/Feature, and a fake home holding the reviewer agent when withAgent.
+func laravelApp(t *testing.T, dir string, n int, withAgent bool, agent string) (root string, tests []string) {
+	t.Helper()
+	root = filepath.Join(dir, "app")
+	os.MkdirAll(filepath.Join(root, "tests", "Feature"), 0o755)
+	os.WriteFile(filepath.Join(root, "artisan"), nil, 0o644)
+	for i := 1; i <= n; i++ {
+		p := filepath.Join(root, "tests", "Feature", fmt.Sprintf("T%02dTest.php", i))
+		os.WriteFile(p, nil, 0o644)
+		tests = append(tests, p)
+	}
+	home := t.TempDir()
+	if withAgent {
+		os.MkdirAll(filepath.Join(home, ".claude", "agents"), 0o755)
+		os.WriteFile(filepath.Join(home, ".claude", "agents", agent+".md"), nil, 0o644)
+	}
+	old := userHomeDir
+	userHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDir = old })
+	return root, tests
+}
+
+// editAll edits each path once with reads in between, so only the
+// test-quality signal can fire, and returns the last injected context.
+func editAll(t *testing.T, paths []string) []string {
+	t.Helper()
+	var got []string
+	for _, p := range paths {
+		got = append(got, nudge(t, nudgeCall{tool: "Write", path: p}))
+		nudge(t, nudgeCall{tool: "Read", path: p})
+	}
+	return got
+}
+
+func TestNudgeTestQualityFiresAndRatchets(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	_, tests := laravelApp(t, dir, 16, true, "test-quality-checker")
+	got := editAll(t, tests)
+	for i, g := range got {
+		if (i == 7 || i == 15) != (g != "") {
+			t.Fatalf("file %d: fired=%v", i+1, g != "")
+		}
+	}
+	want := "Test-quality nudge (automatic: 8 distinct test files edited since the last fresh-eyes review).\n\n" +
+		"A fresh pair of eyes catches the anti-patterns you have stopped seeing - and a habit corrected now is one the rest of the session does not repeat.\n\n" +
+		"The test files in question:\n"
+	for _, p := range tests[:8] {
+		want += "- " + p + " (first edited just now)\n"
+	}
+	want += "\nLaunch the test-quality-checker subagent now: hand it this file list and tell it this is a mid-feature WIP review, so it should judge the tests that exist rather than flag incompleteness. " +
+		`Act on any "you really should fix" findings before writing more tests - launching the checker is what resets this counter.`
+	if got[7] != want {
+		t.Fatalf("message:\n%s\nwant:\n%s", got[7], want)
+	}
+	if !strings.Contains(got[15], "\n\nFrom the inside every test you write looks fine;") {
+		t.Errorf("second firing should use phrasing 2:\n%s", got[15])
+	}
+	log, _ := os.ReadFile(filepath.Join(cfg, "aec", "state-nudge.log"))
+	if !strings.Contains(string(log), "| sess-1 | test-nudge-fired at 8 test files (firing #1) | "+tests[0]+", ") {
+		t.Errorf("log:\n%s", log)
+	}
+}
+
+func TestNudgeTestQualityCountsOnlyLaravelTests(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	root, tests := laravelApp(t, dir, 1, true, "test-quality-checker")
+	other := filepath.Join(dir, "plain", "tests")
+	os.MkdirAll(other, 0o755)
+	notCounted := []string{filepath.Join(root, "app", "Thing.php"), filepath.Join(root, "tests", "notes.md"), filepath.Join(other, "XTest.php")}
+	os.MkdirAll(filepath.Join(root, "app"), 0o755)
+	for _, p := range notCounted {
+		os.WriteFile(p, nil, 0o644)
+	}
+	editAll(t, append(notCounted, tests...))
+	if s := readState(t, cfg, "sess-1"); len(s.TestFiles) != 1 || s.TestFiles[tests[0]] == 0 {
+		t.Errorf("test_files = %v", s.TestFiles)
+	}
+}
+
+func TestNudgeTestQualitySkipsWithoutAgent(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	_, tests := laravelApp(t, dir, 8, false, "")
+	for i, g := range editAll(t, tests) {
+		if g != "" {
+			t.Fatalf("file %d fired without an agent installed", i+1)
+		}
+	}
+	if s := readState(t, cfg, "sess-1"); s.TestNextFire != 16 || s.TestFired != 0 {
+		t.Errorf("state: %+v", s)
+	}
+	log, _ := os.ReadFile(filepath.Join(cfg, "aec", "state-nudge.log"))
+	if !strings.Contains(string(log), "| sess-1 | test-nudge-skipped at 8 test files - no test-quality-checker agent installed (see https://github.com/ohnotnow/agentic-stuff)") {
+		t.Errorf("log:\n%s", log)
+	}
+}
+
+func TestNudgeTestQualityProjectAgent(t *testing.T) {
+	_, dir := nudgeEnv(t)
+	root, tests := laravelApp(t, dir, 8, false, "")
+	os.MkdirAll(filepath.Join(root, ".claude", "agents"), 0o755)
+	os.WriteFile(filepath.Join(root, ".claude", "agents", "test-quality-checker.md"), nil, 0o644)
+	if got := editAll(t, tests); got[7] == "" {
+		t.Error("project-level agent should count as installed")
+	}
+}
+
+func TestNudgeTestQualityReviewResets(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	_, tests := laravelApp(t, dir, 3, true, "test-quality-checker")
+	editAll(t, tests)
+	if got := nudge(t, nudgeCall{tool: "Agent", subagentType: "test-quality-checker"}); got != "" {
+		t.Errorf("review launch printed %q", got)
+	}
+	if s := readState(t, cfg, "sess-1"); len(s.TestFiles) != 0 || s.TestNextFire != 8 {
+		t.Errorf("state: %+v", s)
+	}
+	log, _ := os.ReadFile(filepath.Join(cfg, "aec", "state-nudge.log"))
+	if !strings.Contains(string(log), "| sess-1 | test-nudge-reset (test-quality-checker launched; 3 test files cleared)") {
+		t.Errorf("log:\n%s", log)
+	}
+	nudge(t, nudgeCall{tool: "Agent", subagentType: "test-quality-checker"})
+	log2, _ := os.ReadFile(filepath.Join(cfg, "aec", "state-nudge.log"))
+	if strings.Count(string(log2), "test-nudge-reset") != 1 {
+		t.Errorf("an empty reset should not log:\n%s", log2)
+	}
+}
+
+func TestNudgeTestQualitySettings(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	writeOverlay(t, cfg, "[nudge]\ntest_files = 3\ntest_agent = \"my-reviewer\"\n")
+	_, tests := laravelApp(t, dir, 3, true, "my-reviewer")
+	got := editAll(t, tests)
+	if got[2] == "" || !strings.Contains(got[2], "Launch the my-reviewer subagent now") {
+		t.Fatalf("did not fire at 3 with my-reviewer: %q", got[2])
+	}
+	nudge(t, nudgeCall{tool: "Agent", subagentType: "test-quality-checker"})
+	if s := readState(t, cfg, "sess-1"); len(s.TestFiles) != 3 {
+		t.Error("the default agent name should not reset a renamed reviewer")
+	}
+	nudge(t, nudgeCall{tool: "Agent", subagentType: "my-reviewer"})
+	if s := readState(t, cfg, "sess-1"); len(s.TestFiles) != 0 {
+		t.Error("my-reviewer should reset")
+	}
+}
+
+func TestNudgeTestQualityDisabled(t *testing.T) {
+	cfg, dir := nudgeEnv(t)
+	writeOverlay(t, cfg, `disabled = ["test-quality"]`)
+	_, tests := laravelApp(t, dir, 8, true, "test-quality-checker")
+	if got := editAll(t, tests); got[7] != "" {
+		t.Errorf("disabled signal fired: %q", got[7])
+	}
+}

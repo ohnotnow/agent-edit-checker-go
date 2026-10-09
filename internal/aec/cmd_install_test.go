@@ -37,16 +37,23 @@ func readJSON(t *testing.T, path string) map[string]any {
 	return doc
 }
 
+// hookCommands lists the commands under PreToolUse, then
+// PostToolUseFailure.
 func hookCommands(doc map[string]any) []string {
 	var out []string
 	hooks, _ := doc["hooks"].(map[string]any)
-	for _, g := range hooks["PreToolUse"].([]any) {
-		for _, e := range g.(map[string]any)["hooks"].([]any) {
-			out = append(out, e.(map[string]any)["command"].(string))
+	for _, event := range []string{"PreToolUse", "PostToolUseFailure"} {
+		groups, _ := hooks[event].([]any)
+		for _, g := range groups {
+			for _, e := range g.(map[string]any)["hooks"].([]any) {
+				out = append(out, e.(map[string]any)["command"].(string))
+			}
 		}
 	}
 	return out
 }
+
+var allAecHooks = []string{"~/bin/aec hook edit", "~/bin/aec hook bash", "~/bin/aec hook tool-fails"}
 
 func backups(t *testing.T, path string) []string {
 	t.Helper()
@@ -61,9 +68,13 @@ func TestInstallFresh(t *testing.T) {
 	if code != 0 || stderr != "" {
 		t.Fatalf("code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
-	want := []string{"~/bin/aec hook edit", "~/bin/aec hook bash"}
-	if got := hookCommands(readJSON(t, path)); !reflect.DeepEqual(got, want) {
+	doc := readJSON(t, path)
+	if got := hookCommands(doc); !reflect.DeepEqual(got, allAecHooks) {
 		t.Errorf("commands=%v", got)
+	}
+	failGroup := doc["hooks"].(map[string]any)["PostToolUseFailure"].([]any)[0].(map[string]any)
+	if _, ok := failGroup["matcher"]; ok {
+		t.Errorf("tool-fails group should have no matcher: %v", failGroup)
 	}
 	if b := backups(t, path); len(b) != 0 {
 		t.Errorf("unexpected backups %v", b)
@@ -72,7 +83,7 @@ func TestInstallFresh(t *testing.T) {
 	if _, err := os.Stat(overlay); err != nil {
 		t.Errorf("starter overlay not written: %v", err)
 	}
-	for _, s := range []string{"(will be created)", "[add]    PreToolUse (matcher: Write|Edit) -> ~/bin/aec hook edit", "Wrote starter overlay to " + overlay, "Restart Claude Code"} {
+	for _, s := range []string{"(will be created)", "[add]    PreToolUse (matcher: Write|Edit) -> ~/bin/aec hook edit", "[add]    PostToolUseFailure -> ~/bin/aec hook tool-fails", "Wrote starter overlay to " + overlay, "Restart Claude Code"} {
 		if !strings.Contains(stdout, s) {
 			t.Errorf("missing %q in:\n%s", s, stdout)
 		}
@@ -81,7 +92,7 @@ func TestInstallFresh(t *testing.T) {
 	before, _ := os.ReadFile(path)
 	code, stdout, _ = runOut(t, "", "install", "--yes", "--settings="+path)
 	after, _ := os.ReadFile(path)
-	if code != 0 || strings.Count(stdout, "[ok]") != 2 || !strings.Contains(stdout, "Nothing to do") {
+	if code != 0 || strings.Count(stdout, "[ok]") != 3 || !strings.Contains(stdout, "Nothing to do") {
 		t.Errorf("second run: code=%d\n%s", code, stdout)
 	}
 	if string(before) != string(after) || len(backups(t, path)) != 0 {
@@ -92,14 +103,24 @@ func TestInstallFresh(t *testing.T) {
 func TestInstallUpdatesOldPath(t *testing.T) {
 	home := installEnv(t)
 	path := filepath.Join(home, "settings.json")
-	old := `{"hooks":{"PreToolUse":[{"matcher":"Write|Edit","hooks":[{"type":"command","command":"/old/place/aec hook edit"}]}]}}`
+	old := `{"hooks":{"PreToolUse":[{"matcher":"Write|Edit","hooks":[{"type":"command","command":"/old/place/aec hook edit"}]}],` +
+		`"PostToolUseFailure":[{"hooks":[{"type":"command","command":"/old/place/aec hook tool-fails"}]}]}}`
 	os.WriteFile(path, []byte(old), 0o644)
 	code, stdout, _ := runOut(t, "", "install", "-y", "--settings="+path)
-	if code != 0 || !strings.Contains(stdout, "[update] PreToolUse: hook edit: path -> ~/bin/aec hook edit") {
-		t.Fatalf("code=%d\n%s", code, stdout)
+	for _, s := range []string{
+		"[update] PreToolUse: hook edit: path -> ~/bin/aec hook edit",
+		"[update] PostToolUseFailure: hook tool-fails: path -> ~/bin/aec hook tool-fails\n",
+	} {
+		if code != 0 || !strings.Contains(stdout, s) {
+			t.Errorf("code=%d, missing %q in:\n%s", code, s, stdout)
+		}
 	}
-	if got := hookCommands(readJSON(t, path)); !reflect.DeepEqual(got, []string{"~/bin/aec hook edit", "~/bin/aec hook bash"}) {
+	doc := readJSON(t, path)
+	if got := hookCommands(doc); !reflect.DeepEqual(got, allAecHooks) {
 		t.Errorf("commands=%v", got)
+	}
+	if fail := doc["hooks"].(map[string]any)["PostToolUseFailure"].([]any); len(fail) != 1 || fail[0].(map[string]any)["matcher"] != nil {
+		t.Errorf("tool-fails group should be updated in place with no matcher: %v", fail)
 	}
 	b := backups(t, path)
 	if len(b) != 1 || filepath.Base(b[0]) != "settings.json.backup-20260102-030405" {
@@ -121,7 +142,8 @@ func TestInstallLeavesOthersAlone(t *testing.T) {
       {"matcher": "Write|Edit", "hooks": [{"type": "command", "command": "~/code/agent-edit-checker/check.php"}]},
       {"matcher": "Bash", "hooks": [{"type": "command", "command": "~/code/agent-edit-checker/tool-use.php"}]}
     ],
-    "PostToolUse": [{"matcher": "Edit", "hooks": [{"type": "command", "command": "echo a && echo b"}]}]
+    "PostToolUse": [{"matcher": "Edit", "hooks": [{"type": "command", "command": "echo a && echo b"}]}],
+    "PostToolUseFailure": [{"hooks": [{"type": "command", "command": "~/code/agent-edit-checker/tool-fails.php"}]}]
   }
 }`
 	os.WriteFile(path, []byte(src), 0o644)
@@ -129,8 +151,8 @@ func TestInstallLeavesOthersAlone(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d\n%s", code, stdout)
 	}
-	for _, php := range phpHooks {
-		if !strings.Contains(stdout, "[note]   PreToolUse: ~/code/agent-edit-checker/"+php+" is still installed") {
+	for php, event := range map[string]string{"check.php": "PreToolUse", "tool-use.php": "PreToolUse", "tool-fails.php": "PostToolUseFailure"} {
+		if !strings.Contains(stdout, "[note]   "+event+": ~/code/agent-edit-checker/"+php+" is still installed") {
 			t.Errorf("missing note for %s:\n%s", php, stdout)
 		}
 	}
@@ -148,6 +170,10 @@ func TestInstallLeavesOthersAlone(t *testing.T) {
 	pre := gotHooks["PreToolUse"].([]any)
 	if len(pre) != 4 || !reflect.DeepEqual(pre[:2], wantHooks["PreToolUse"].([]any)) {
 		t.Errorf("PreToolUse should keep the PHP groups first: %v", pre)
+	}
+	fail := gotHooks["PostToolUseFailure"].([]any)
+	if len(fail) != 2 || !reflect.DeepEqual(fail[:1], wantHooks["PostToolUseFailure"].([]any)) {
+		t.Errorf("PostToolUseFailure should keep the PHP group first: %v", fail)
 	}
 	raw, _ := os.ReadFile(path)
 	if !strings.Contains(string(raw), "echo a && echo b") {
@@ -182,7 +208,7 @@ func TestInstallPromptYes(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d", code)
 	}
-	if len(hookCommands(readJSON(t, path))) != 2 {
+	if len(hookCommands(readJSON(t, path))) != 3 {
 		t.Errorf("hooks not written")
 	}
 }
@@ -190,7 +216,7 @@ func TestInstallPromptYes(t *testing.T) {
 func TestInstallRefusesBadJSON(t *testing.T) {
 	home := installEnv(t)
 	path := filepath.Join(home, "settings.json")
-	for _, src := range []string{`[]`, `{"hooks": []}`, `{"hooks": {"PreToolUse": {}}}`, `{nope`} {
+	for _, src := range []string{`[]`, `{"hooks": []}`, `{"hooks": {"PreToolUse": {}}}`, `{"hooks": {"PostToolUseFailure": "x"}}`, `{nope`} {
 		os.WriteFile(path, []byte(src), 0o644)
 		code, stderr := run(t, "", "install", "-y", "--settings="+path)
 		if code != 65 || !strings.Contains(stderr, path) || !strings.Contains(stderr, "leaving it untouched") {
@@ -219,7 +245,7 @@ func TestInstallScopes(t *testing.T) {
 		if code != 0 || !strings.Contains(stdout, "settings: "+want+" (will be created)") {
 			t.Errorf("%s: code=%d\n%s", scope, code, stdout)
 		}
-		if len(hookCommands(readJSON(t, want))) != 2 {
+		if len(hookCommands(readJSON(t, want))) != 3 {
 			t.Errorf("%s: hooks not written to %s", scope, want)
 		}
 	}
@@ -265,5 +291,8 @@ func TestIsAecHook(t *testing.T) {
 		if got := isAecHook(cmd, "edit"); got != want {
 			t.Errorf("isAecHook(%q) = %v", cmd, got)
 		}
+	}
+	if !isAecHook("~/bin/aec hook tool-fails", "tool-fails") || isAecHook("~/bin/aec hook tool-fails", "edit") {
+		t.Errorf("isAecHook mishandles tool-fails")
 	}
 }

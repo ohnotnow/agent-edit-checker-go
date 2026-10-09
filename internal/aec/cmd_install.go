@@ -21,22 +21,23 @@ var (
 	now            = time.Now
 )
 
-// installHook is one hook entry the installer manages.
+// installHook is one hook entry the installer manages. An empty matcher
+// means the group has no matcher key and runs for every tool.
 type installHook struct {
+	event   string
 	matcher string
-	sub     string // "edit" or "bash"
+	sub     string // the word after "aec hook"
 }
 
 var installHooks = []installHook{
-	{matcher: "Write|Edit", sub: "edit"},
-	{matcher: "Bash", sub: "bash"},
+	{event: "PreToolUse", matcher: "Write|Edit", sub: "edit"},
+	{event: "PreToolUse", matcher: "Bash", sub: "bash"},
+	{event: "PostToolUseFailure", sub: "tool-fails"},
 }
 
 // phpHooks are the predecessor scripts; the installer reports them and
 // leaves them alone.
-var phpHooks = []string{"check.php", "tool-use.php"}
-
-const installEvent = "PreToolUse"
+var phpHooks = []string{"check.php", "tool-use.php", "tool-fails.php"}
 
 // install wires the hooks into a Claude Code settings file.
 func install(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
@@ -222,14 +223,16 @@ func planHooks(doc map[string]any, exe, path string) ([]string, int, error) {
 		hooks = map[string]any{}
 		doc["hooks"] = hooks
 	}
-	groups, ok := hooks[installEvent].([]any)
-	if hooks[installEvent] != nil && !ok {
-		return nil, 0, validationErr("%s: \"hooks.%s\" is not a JSON array; leaving it untouched", path, installEvent)
+	for _, h := range installHooks {
+		if _, ok := hooks[h.event].([]any); hooks[h.event] != nil && !ok {
+			return nil, 0, validationErr("%s: \"hooks.%s\" is not a JSON array; leaving it untouched", path, h.event)
+		}
 	}
 
 	var plan []string
 	changes := 0
 	for _, h := range installHooks {
+		groups, _ := hooks[h.event].([]any)
 		desired := exe + " hook " + h.sub
 		found := false
 		var updates []string
@@ -247,28 +250,35 @@ func planHooks(doc map[string]any, exe, path string) ([]string, int, error) {
 					entry["command"] = desired
 					updates = append(updates, "path -> "+desired)
 				}
-				if len(entries) == 1 && group["matcher"] != h.matcher {
-					group["matcher"] = h.matcher
-					updates = append(updates, "matcher -> "+h.matcher)
+				if matcher, _ := group["matcher"].(string); len(entries) == 1 && matcher != h.matcher {
+					if h.matcher == "" {
+						delete(group, "matcher")
+						updates = append(updates, "matcher removed")
+					} else {
+						group["matcher"] = h.matcher
+						updates = append(updates, "matcher -> "+h.matcher)
+					}
 				}
 			}
 		}
 		switch {
 		case found && len(updates) > 0:
-			plan = append(plan, fmt.Sprintf("[update] %s: hook %s: %s", installEvent, h.sub, strings.Join(updates, ", ")))
+			plan = append(plan, fmt.Sprintf("[update] %s: hook %s: %s", h.event, h.sub, strings.Join(updates, ", ")))
 			changes++
 		case found:
-			plan = append(plan, fmt.Sprintf("[ok]     %s: hook %s: already present and correct", installEvent, h.sub))
+			plan = append(plan, fmt.Sprintf("[ok]     %s: hook %s: already present and correct", h.event, h.sub))
 		default:
-			groups = append(groups, map[string]any{
-				"matcher": h.matcher,
-				"hooks":   []any{map[string]any{"type": "command", "command": desired}},
-			})
-			plan = append(plan, fmt.Sprintf("[add]    %s (matcher: %s) -> %s", installEvent, h.matcher, desired))
+			group := map[string]any{"hooks": []any{map[string]any{"type": "command", "command": desired}}}
+			where := h.event
+			if h.matcher != "" {
+				group["matcher"] = h.matcher
+				where += " (matcher: " + h.matcher + ")"
+			}
+			hooks[h.event] = append(groups, group)
+			plan = append(plan, fmt.Sprintf("[add]    %s -> %s", where, desired))
 			changes++
 		}
 	}
-	hooks[installEvent] = groups
 	return plan, changes, nil
 }
 

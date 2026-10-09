@@ -24,7 +24,7 @@ Then wire the hooks into Claude Code:
 aec install
 ```
 
-This backs up `~/.claude/settings.json` to a timestamped copy, adds two `PreToolUse` hooks (one for `Write|Edit`, one for `Bash`), shows the plan and asks before writing. It never removes or edits other hooks. If the old PHP hooks are still there it says so and leaves them alone, since you may have customised them.
+This backs up `~/.claude/settings.json` to a timestamped copy, adds three hooks (`PreToolUse` ones for `Write|Edit` and for `Bash`, and a `PostToolUseFailure` one for every tool), shows the plan and asks before writing. It never removes or edits other hooks. If the old PHP hooks are still there it says so and leaves them alone, since you may have customised them.
 
 Flags: `--dry-run` shows the plan and changes nothing, `--yes` skips the prompt, `--scope project` or `--scope local` writes to the current project's `.claude/settings.json` or `.claude/settings.local.json` instead of the user file, and `--settings <path>` names any other file. The rules overlay is global whatever the scope.
 
@@ -76,6 +76,7 @@ aec version            print the version and check for a newer release
 aec self-update        download and install the latest release
 aec hook edit          the Write|Edit hook (Claude Code runs this, you do not)
 aec hook bash          the Bash hook
+aec hook tool-fails    the PostToolUseFailure hook, logs failed tool calls
 ```
 
 `aec version` prints the running version and, for release builds, whether a newer one exists. `aec self-update` fetches the release for your platform, checks it against the published `SHA256SUMS`, shows the release notes and asks before swapping the binary. `--yes` skips the prompt and `--check` only reports, exiting 0 when current, 1 when an update exists and 2 when it could not look. Binaries installed by Homebrew or `go install` are pointed at those tools instead. Dev builds never self-update.
@@ -85,6 +86,8 @@ Rules in the TUI are written to the overlay on every toggle, so the next tool ca
 ## Hook contract
 
 Claude Code sends the tool call as JSON on stdin. The hook exits 0 to allow the call, or prints one line per rule that fired on stderr (a cross mark, then `Blocked: <message>`) and exits 2 to block it. Invalid JSON allows the call. Every Bash decision is appended to `~/.config/aec/tool-use.log`.
+
+The tool-fails hook never blocks and always exits 0. It appends each failed tool call, except ones you interrupted with escape, to `~/.config/aec/tool-fails.log` as `timestamp | tool | command, file path or tool input | error`.
 
 Other commands exit 0 on success, 64 for a usage error, 65 for a bad file, 66 when a name is not found and 1 for anything else, with one `aec: <message>` line on stderr.
 

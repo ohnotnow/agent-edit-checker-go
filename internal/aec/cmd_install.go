@@ -34,11 +34,12 @@ var installHooks = []installHook{
 	{event: "PreToolUse", matcher: "Bash", sub: "bash"},
 	{event: "PostToolUseFailure", sub: "tool-fails"},
 	{event: "UserPromptSubmit", sub: "prompt"},
+	{event: "PostToolUse", matcher: "Write|Edit|Read|Agent", sub: "nudge"},
 }
 
 // phpHooks are the predecessor scripts; the installer reports them and
 // leaves them alone.
-var phpHooks = []string{"check.php", "tool-use.php", "tool-fails.php", "prompt-context.php"}
+var phpHooks = []string{"check.php", "tool-use.php", "tool-fails.php", "prompt-context.php", "state-nudge.php"}
 
 // install wires the hooks into a Claude Code settings file.
 func install(args []string, stdin io.Reader, stdout, stderr io.Writer) error {

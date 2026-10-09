@@ -37,23 +37,25 @@ func readJSON(t *testing.T, path string) map[string]any {
 	return doc
 }
 
-// hookCommands lists the commands under PreToolUse, PostToolUseFailure,
-// then UserPromptSubmit.
+// hookCommands lists the aec commands under PreToolUse,
+// PostToolUseFailure, UserPromptSubmit, then PostToolUse.
 func hookCommands(doc map[string]any) []string {
 	var out []string
 	hooks, _ := doc["hooks"].(map[string]any)
-	for _, event := range []string{"PreToolUse", "PostToolUseFailure", "UserPromptSubmit"} {
+	for _, event := range []string{"PreToolUse", "PostToolUseFailure", "UserPromptSubmit", "PostToolUse"} {
 		groups, _ := hooks[event].([]any)
 		for _, g := range groups {
 			for _, e := range g.(map[string]any)["hooks"].([]any) {
-				out = append(out, e.(map[string]any)["command"].(string))
+				if cmd := e.(map[string]any)["command"].(string); strings.Contains(cmd, "aec") {
+					out = append(out, cmd)
+				}
 			}
 		}
 	}
 	return out
 }
 
-var allAecHooks = []string{"~/bin/aec hook edit", "~/bin/aec hook bash", "~/bin/aec hook tool-fails", "~/bin/aec hook prompt"}
+var allAecHooks = []string{"~/bin/aec hook edit", "~/bin/aec hook bash", "~/bin/aec hook tool-fails", "~/bin/aec hook prompt", "~/bin/aec hook nudge"}
 
 func backups(t *testing.T, path string) []string {
 	t.Helper()
@@ -85,7 +87,7 @@ func TestInstallFresh(t *testing.T) {
 	if _, err := os.Stat(overlay); err != nil {
 		t.Errorf("starter overlay not written: %v", err)
 	}
-	for _, s := range []string{"(will be created)", "[add]    PreToolUse (matcher: Write|Edit) -> ~/bin/aec hook edit", "[add]    PostToolUseFailure -> ~/bin/aec hook tool-fails", "[add]    UserPromptSubmit -> ~/bin/aec hook prompt", "Wrote starter overlay to " + overlay, "Restart Claude Code"} {
+	for _, s := range []string{"(will be created)", "[add]    PreToolUse (matcher: Write|Edit) -> ~/bin/aec hook edit", "[add]    PostToolUseFailure -> ~/bin/aec hook tool-fails", "[add]    UserPromptSubmit -> ~/bin/aec hook prompt", "[add]    PostToolUse (matcher: Write|Edit|Read|Agent) -> ~/bin/aec hook nudge", "Wrote starter overlay to " + overlay, "Restart Claude Code"} {
 		if !strings.Contains(stdout, s) {
 			t.Errorf("missing %q in:\n%s", s, stdout)
 		}
@@ -94,7 +96,7 @@ func TestInstallFresh(t *testing.T) {
 	before, _ := os.ReadFile(path)
 	code, stdout, _ = runOut(t, "", "install", "--yes", "--settings="+path)
 	after, _ := os.ReadFile(path)
-	if code != 0 || strings.Count(stdout, "[ok]") != 4 || !strings.Contains(stdout, "Nothing to do") {
+	if code != 0 || strings.Count(stdout, "[ok]") != 5 || !strings.Contains(stdout, "Nothing to do") {
 		t.Errorf("second run: code=%d\n%s", code, stdout)
 	}
 	if string(before) != string(after) || len(backups(t, path)) != 0 {
@@ -144,7 +146,10 @@ func TestInstallLeavesOthersAlone(t *testing.T) {
       {"matcher": "Write|Edit", "hooks": [{"type": "command", "command": "~/code/agent-edit-checker/check.php"}]},
       {"matcher": "Bash", "hooks": [{"type": "command", "command": "~/code/agent-edit-checker/tool-use.php"}]}
     ],
-    "PostToolUse": [{"matcher": "Edit", "hooks": [{"type": "command", "command": "echo a && echo b"}]}],
+    "PostToolUse": [
+      {"matcher": "Edit", "hooks": [{"type": "command", "command": "echo a && echo b"}]},
+      {"matcher": "Write|Edit|Read|Agent", "hooks": [{"type": "command", "command": "~/code/agent-edit-checker/state-nudge.php"}]}
+    ],
     "PostToolUseFailure": [{"hooks": [{"type": "command", "command": "~/code/agent-edit-checker/tool-fails.php"}]}],
     "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "~/code/agent-edit-checker/prompt-context.php"}]}]
   }
@@ -154,7 +159,7 @@ func TestInstallLeavesOthersAlone(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d\n%s", code, stdout)
 	}
-	for php, event := range map[string]string{"check.php": "PreToolUse", "tool-use.php": "PreToolUse", "tool-fails.php": "PostToolUseFailure", "prompt-context.php": "UserPromptSubmit"} {
+	for php, event := range map[string]string{"check.php": "PreToolUse", "tool-use.php": "PreToolUse", "tool-fails.php": "PostToolUseFailure", "prompt-context.php": "UserPromptSubmit", "state-nudge.php": "PostToolUse"} {
 		if !strings.Contains(stdout, "[note]   "+event+": ~/code/agent-edit-checker/"+php+" is still installed") {
 			t.Errorf("missing note for %s:\n%s", php, stdout)
 		}
@@ -167,8 +172,9 @@ func TestInstallLeavesOthersAlone(t *testing.T) {
 	}
 	wantHooks := want["hooks"].(map[string]any)
 	gotHooks := got["hooks"].(map[string]any)
-	if !reflect.DeepEqual(gotHooks["PostToolUse"], wantHooks["PostToolUse"]) {
-		t.Errorf("PostToolUse changed: %v", gotHooks["PostToolUse"])
+	post := gotHooks["PostToolUse"].([]any)
+	if len(post) != 3 || !reflect.DeepEqual(post[:2], wantHooks["PostToolUse"].([]any)) {
+		t.Errorf("PostToolUse should keep its groups first: %v", post)
 	}
 	pre := gotHooks["PreToolUse"].([]any)
 	if len(pre) != 4 || !reflect.DeepEqual(pre[:2], wantHooks["PreToolUse"].([]any)) {
@@ -215,7 +221,7 @@ func TestInstallPromptYes(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("code=%d", code)
 	}
-	if len(hookCommands(readJSON(t, path))) != 4 {
+	if len(hookCommands(readJSON(t, path))) != 5 {
 		t.Errorf("hooks not written")
 	}
 }
@@ -252,7 +258,7 @@ func TestInstallScopes(t *testing.T) {
 		if code != 0 || !strings.Contains(stdout, "settings: "+want+" (will be created)") {
 			t.Errorf("%s: code=%d\n%s", scope, code, stdout)
 		}
-		if len(hookCommands(readJSON(t, want))) != 4 {
+		if len(hookCommands(readJSON(t, want))) != 5 {
 			t.Errorf("%s: hooks not written to %s", scope, want)
 		}
 	}

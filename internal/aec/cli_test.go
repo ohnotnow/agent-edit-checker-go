@@ -68,6 +68,9 @@ func TestStarterExamplesAreValid(t *testing.T) {
 	if r := ruleByName(t, merged.Rules, "british-english"); !r.Prompt || r.Pattern != "/.*/s" {
 		t.Errorf("british-english: prompt=%v pattern=%q", r.Prompt, r.Pattern)
 	}
+	if got := merged.Nudge.ThresholdFor("claude-opus-5-5"); got != 9 {
+		t.Errorf("example 6: opus-5-5 threshold = %d", got)
+	}
 	for _, name := range []string{"no-dd", "no-svn", "british-english"} {
 		if r := ruleByName(t, merged.Rules, name); r.Origin != OriginUser {
 			t.Errorf("%s: origin=%v", name, r.Origin)

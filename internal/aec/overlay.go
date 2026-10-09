@@ -128,10 +128,11 @@ func LoadOverlay(path string) (*overlayFile, error) {
 }
 
 // starterExamples is the worked part of the starter overlay: valid TOML
-// showing the five things an overlay can do. It is shipped commented out.
+// showing the six things an overlay can do. It is shipped commented out.
 const starterExamples = `# 1. Switch a default off by name. aec rules list prints every rule and
 #    aec rules show <name> prints one. This project has no Sentry, so an
-#    agent throwing its own exceptions is fine here.
+#    agent throwing its own exceptions is fine here. The nudge signals
+#    state-load, confidence-check and test-quality switch off the same way.
 disabled = ["no-throw"]
 
 # 2. Reword a default. Give the name and only the keys you want changed;
@@ -168,6 +169,13 @@ name = "british-english"
 prompt = true
 pattern = '/.*/s'
 message = "Use British English spelling."
+
+# 6. Tune the nudges. aec watches for files edited but not re-read, long
+#    runs of edits, and piles of new tests, and nudges the agent. Give only
+#    the settings you want changed; aec rules list shows them all. Model
+#    names match by substring, the longest match winning.
+[nudge.models]
+"opus-5-5" = 9
 `
 
 const starterHeader = `# aec overlay. The rules live in the aec binary; this file only lists

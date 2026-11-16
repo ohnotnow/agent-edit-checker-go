@@ -21,7 +21,7 @@ internal/aec/            everything else, one flat package
   rules.toml             default rules + [nudge] settings, embedded with go:embed
   testdata/fixtures/     JSON hook payloads per rule: edit/, bash/, prompt/
 scripts/php-parity.sh    runs every fixture through Go and the old PHP hooks, reports disagreements
-.github/workflows/release.yml   cross-compiles 6 targets on a v* tag (no test CI workflow)
+.github/workflows/release.yml   on a v* tag: test job (vet, test, govulncheck) gates a 6-target cross-compile on latest stable Go
 ```
 
 ## Core Concepts

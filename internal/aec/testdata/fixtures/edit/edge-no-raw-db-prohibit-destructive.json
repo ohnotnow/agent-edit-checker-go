@@ -1,0 +1,12 @@
+{
+  "rule": "no-raw-db",
+  "why": "DB::prohibitDestructiveCommands guards production against migrate:fresh and friends, so it is allowed",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/Providers/AppServiceProvider.php",
+      "content": "DB::prohibitDestructiveCommands($this->app->isProduction());"
+    }
+  },
+  "expect": "allow",
+  "skip_php": "Added after the port; the PHP hook still blocks this call."
+}

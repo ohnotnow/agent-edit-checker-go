@@ -1,0 +1,11 @@
+{
+  "rule": "no-raw-db",
+  "why": "the allowed names must match whole, so a longer method starting with one is still blocked",
+  "payload": {
+    "tool_input": {
+      "file_path": "app/X.php",
+      "content": "DB::transactionLevel();"
+    }
+  },
+  "expect": "deny"
+}

@@ -34,7 +34,7 @@ message = "Don't use spies - stop and ask the user what to do."
 [[rules]]
 name = "no-raw-db"
 files = ["php"]
-pattern = '/DB::(?!transaction\b)/i'
+pattern = '/DB::(?!(transaction|prohibitDestructiveCommands)\b)/i'
 message = "Don't use raw query builder calls - use Eloquent and model relations. Ask the user if you really need a raw call."
 
 [[rules]]

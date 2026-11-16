@@ -182,10 +182,15 @@ func hookCommandPrefix(home string) (string, error) {
 	if real, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = real
 	}
-	if home != "" && strings.HasPrefix(exe, home+string(filepath.Separator)) {
-		return "~" + exe[len(home):], nil
+	return tildePath(home, exe), nil
+}
+
+// tildePath writes p relative to "~" when it lies under home.
+func tildePath(home, p string) string {
+	if home != "" && strings.HasPrefix(p, home+string(filepath.Separator)) {
+		return "~" + p[len(home):]
 	}
-	return exe, nil
+	return p
 }
 
 // readSettings decodes the settings file. A missing file gives an empty

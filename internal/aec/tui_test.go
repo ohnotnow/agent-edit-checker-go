@@ -166,3 +166,59 @@ message = "Read the code first."
 		t.Errorf("overridden rule message at column %d, want %d", got, want)
 	}
 }
+
+func TestTuiViewShowsRuleAsToml(t *testing.T) {
+	defaults, _ := LoadDefaults()
+	m := newTuiModel(Merged{Rules: defaults}, "", false)
+	if strings.Contains(m.View(), "pattern = ") {
+		t.Fatal("view open before v was pressed")
+	}
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	m = next.(tuiModel)
+	if !strings.Contains(m.View(), m.rules[0].Pattern) || !strings.Contains(m.View(), "[[rules]]") {
+		t.Errorf("pattern not shown:\n%s", m.View())
+	}
+}
+
+func TestTuiPublish(t *testing.T) {
+	dir := useTempConfig(t)
+	path := filepath.Join(dir, "aec", "rules.toml")
+	defaults, _ := LoadDefaults()
+	m := newTuiModel(Merged{Rules: defaults, Signals: mergeSignals(nil)}, path, true)
+	press := func() {
+		next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
+		m = next.(tuiModel)
+	}
+
+	press()
+	name := m.rules[0].Name
+	if m.failed || m.rules[0].Origin != OriginOverridden || !strings.HasSuffix(m.status, " in "+path) {
+		t.Fatalf("publish: status=%q origin=%v", m.status, m.rules[0].Origin)
+	}
+	if data, _ := os.ReadFile(path); !strings.Contains(string(data), "name = \""+name+"\"") {
+		t.Errorf("rule not in overlay:\n%s", data)
+	}
+
+	press()
+	if !m.failed || !strings.Contains(m.status, "already in your overlay") {
+		t.Errorf("second publish: failed=%v status=%q", m.failed, m.status)
+	}
+
+	m.cursor = len(m.rules)
+	press()
+	if !m.failed || !strings.Contains(m.status, "only rules") {
+		t.Errorf("nudge publish: failed=%v status=%q", m.failed, m.status)
+	}
+}
+
+func TestTuiShowsOverlayPathUnderHelp(t *testing.T) {
+	home := t.TempDir()
+	old := userHomeDir
+	userHomeDir = func() (string, error) { return home, nil }
+	t.Cleanup(func() { userHomeDir = old })
+	m := newTuiModel(Merged{}, filepath.Join(home, ".config", "aec", "rules.toml"), true)
+	lines := strings.Split(m.View(), "\n")
+	if !strings.Contains(lines[1], "overlay: ~/.config/aec/rules.toml") {
+		t.Errorf("second line: %q", lines[1])
+	}
+}

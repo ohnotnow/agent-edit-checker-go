@@ -102,3 +102,81 @@ func TestWriteDisabledVerifies(t *testing.T) {
 		t.Errorf("file should be left as written for inspection: %q", data)
 	}
 }
+
+func TestPublishRule(t *testing.T) {
+	defaults, _ := LoadDefaults()
+	var rule Rule
+	for _, r := range defaults {
+		if r.Name == "no-raw-db" {
+			rule = r
+		}
+	}
+
+	t.Run("creates the starter and appends a block that merges as an override", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "aec", "rules.toml")
+		if err := PublishRule(path, rule); err != nil {
+			t.Fatal(err)
+		}
+		data, _ := os.ReadFile(path)
+		if !strings.HasPrefix(string(data), starterHeader) {
+			t.Errorf("starter missing:\n%s", data)
+		}
+		if !strings.Contains(string(data), "# Copied from the default no-raw-db rule.") {
+			t.Errorf("note missing:\n%s", data)
+		}
+		ov, err := LoadOverlay(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		merged, err := Merge(defaults, ov)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range merged.Rules {
+			if r.Name == "no-raw-db" && (r.Origin != OriginOverridden || r.Pattern != rule.Pattern || r.Message != rule.Message) {
+				t.Errorf("merged rule: %+v", r)
+			}
+		}
+	})
+
+	t.Run("keeps the existing file and works after a table", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "rules.toml")
+		src := "disabled = [\"no-spy\"]\n\n[nudge.models]\nopus = 9\n"
+		os.WriteFile(path, []byte(src), 0o644)
+		if err := PublishRule(path, rule); err != nil {
+			t.Fatal(err)
+		}
+		data, _ := os.ReadFile(path)
+		if !strings.HasPrefix(string(data), src+"\n# Copied") {
+			t.Errorf("existing content changed:\n%s", data)
+		}
+		ov, err := LoadOverlay(path)
+		if err != nil || ov.Nudge.Models["opus"] != 9 || !slices.Equal(ov.Disabled, []string{"no-spy"}) {
+			t.Errorf("read back %+v %v", ov, err)
+		}
+	})
+
+	t.Run("refuses a rule already in the overlay", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "rules.toml")
+		src := "[[rules]]\nname = \"no-raw-db\"\nmessage = \"mine\"\n"
+		os.WriteFile(path, []byte(src), 0o644)
+		err := PublishRule(path, rule)
+		if err == nil || !strings.Contains(err.Error(), "already in") {
+			t.Errorf("err=%v", err)
+		}
+		if data, _ := os.ReadFile(path); string(data) != src {
+			t.Errorf("file changed:\n%s", data)
+		}
+	})
+
+	t.Run("refuses to append to an overlay that does not parse", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "rules.toml")
+		os.WriteFile(path, []byte("disabled = [\n"), 0o644)
+		if err := PublishRule(path, rule); err == nil {
+			t.Error("broken overlay should fail")
+		}
+		if data, _ := os.ReadFile(path); string(data) != "disabled = [\n" {
+			t.Errorf("file changed: %q", data)
+		}
+	})
+}

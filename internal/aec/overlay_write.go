@@ -107,12 +107,7 @@ func WriteDisabled(path string, names []string) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
-	tmp := path + ".tmp"
-	if err := writeFile(tmp, []byte(out), 0o644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
+	if err := replaceFile(path, out); err != nil {
 		return err
 	}
 	ov, err := LoadOverlay(path)
@@ -121,6 +116,70 @@ func WriteDisabled(path string, names []string) error {
 	}
 	if !sameSet(ov.Disabled, names) {
 		return fmt.Errorf("%s: wrote disabled = %v but read back %v", path, names, ov.Disabled)
+	}
+	return nil
+}
+
+// replaceFile writes data to a sibling temp file and renames it over path.
+func replaceFile(path, data string) error {
+	tmp := path + ".tmp"
+	if err := writeFile(tmp, []byte(data), 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// publishNote goes above a published rule. %s is the rule name.
+const publishNote = `# Copied from the default %s rule. Keep the name, change what you
+# like, and delete any key you leave alone so it keeps following the
+# default when aec is updated.
+`
+
+// PublishRule appends r to the overlay at path as a complete [[rules]]
+// block under publishNote, so it can be edited there. It refuses when the
+// overlay already has a block with r's name, since a duplicate name makes
+// the whole overlay invalid. A missing file is created from the starter
+// overlay first. After writing it decodes the file again and checks the
+// block reads back with r's pattern and message.
+func PublishRule(path string, r Rule) error {
+	if _, err := ensureOverlay(path); err != nil {
+		return err
+	}
+	ov, err := LoadOverlay(path)
+	if err != nil {
+		return err
+	}
+	if slices.ContainsFunc(ov.Rules, func(o overlayRule) bool { return o.Name == r.Name }) {
+		return fmt.Errorf("%s is already in %s", r.Name, path)
+	}
+	var block strings.Builder
+	if err := emitRule(&block, r); err != nil {
+		return err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	src := strings.TrimRight(string(data), "\n")
+	if src != "" {
+		src += "\n\n"
+	}
+	out := src + fmt.Sprintf(publishNote, r.Name) + strings.TrimRight(block.String(), "\n") + "\n"
+	if err := replaceFile(path, out); err != nil {
+		return err
+	}
+	ov, err = LoadOverlay(path)
+	if err != nil {
+		return fmt.Errorf("verify after write: %w", err)
+	}
+	i := slices.IndexFunc(ov.Rules, func(o overlayRule) bool { return o.Name == r.Name })
+	if i < 0 || ov.Rules[i].Pattern == nil || *ov.Rules[i].Pattern != r.Pattern ||
+		ov.Rules[i].Message == nil || *ov.Rules[i].Message != r.Message {
+		return fmt.Errorf("%s: wrote rule %s but it did not read back the same", path, r.Name)
 	}
 	return nil
 }

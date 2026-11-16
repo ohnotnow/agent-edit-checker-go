@@ -56,6 +56,7 @@ type tuiModel struct {
 	agentFound   bool // the test-quality reviewer agent is installed
 	path         string
 	cursor       int
+	viewing      bool // the cursor's rule is shown as TOML under its row
 	width        int
 	height       int
 	status       string
@@ -106,6 +107,10 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case " ", "enter":
 			m = m.toggle()
+		case "v":
+			m.viewing = !m.viewing
+		case "p":
+			m = m.publish()
 		}
 	}
 	return m, nil
@@ -137,6 +142,30 @@ func (m tuiModel) toggle() tuiModel {
 	return m
 }
 
+// publish copies the default rule under the cursor into the overlay so it
+// can be edited there. Rules already in the overlay and nudge rows are
+// refused with a status message.
+func (m tuiModel) publish() tuiModel {
+	if m.cursor >= len(m.rules) {
+		m.status, m.failed = "only rules can be published; nudges are tuned in the [nudge] table", true
+		return m
+	}
+	r := m.rules[m.cursor]
+	if r.Origin != OriginDefault {
+		m.status, m.failed = r.Name+" is already in your overlay", true
+		return m
+	}
+	if err := PublishRule(m.path, r); err != nil {
+		m.status, m.failed = "publish failed: "+err.Error(), true
+		return m
+	}
+	m.rules = slices.Clone(m.rules)
+	m.rules[m.cursor].Origin = OriginOverridden
+	home, _ := userHomeDir()
+	m.status = "published " + r.Name + " to the overlay in " + tildePath(home, m.path)
+	return m
+}
+
 // disabledNames lists the names of every disabled rule, in list order.
 func disabledNames(rules []Rule) []string {
 	var names []string
@@ -150,29 +179,24 @@ func disabledNames(rules []Rule) []string {
 
 func (m tuiModel) View() string {
 	var b strings.Builder
-	b.WriteString(styleCursor.Render("aec") + styleMuted.Render("  space toggles, j/k move, q quits") + "\n\n")
+	home, _ := userHomeDir()
+	b.WriteString(styleCursor.Render("aec") + styleMuted.Render("  space toggles, v views, p publishes, j/k move, q quits") + "\n")
+	b.WriteString(styleMuted.Render("overlay: ") + truncate(tildePath(home, m.path), m.width-9) + "\n\n")
 
 	lines, cursorEnd := m.lines()
-	visible := max(m.height-4, 1)
+	visible := max(m.height-5, 1)
 	offset := max(cursorEnd-visible+1, 0)
 	for _, line := range lines[offset:min(offset+visible, len(lines))] {
 		b.WriteString(line + "\n")
 	}
 
 	b.WriteString("\n")
-	left := styleMuted.Render(m.path)
-	right := ""
 	switch {
 	case m.failed:
-		right = styleErr.Render(m.status)
+		b.WriteString(styleErr.Render(m.status))
 	case m.status != "":
-		right = styleOK.Render(m.status)
+		b.WriteString(styleOK.Render(m.status))
 	}
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(right)
-	if gap < 1 {
-		gap = 1
-	}
-	b.WriteString(left + strings.Repeat(" ", gap) + right)
 	return b.String()
 }
 
@@ -192,6 +216,9 @@ func (m tuiModel) lines() ([]string, int) {
 		lines = append(lines, m.row(i))
 		if d := m.detail(i); d != "" {
 			lines = append(lines, d)
+		}
+		if m.viewing && i == m.cursor {
+			lines = append(lines, m.ruleView(i)...)
 		}
 		if i == m.cursor {
 			cursorEnd = len(lines) - 1
@@ -316,6 +343,26 @@ func (m tuiModel) detail(i int) string {
 		text = styleMuted.Render(text)
 	}
 	return "      " + text
+}
+
+// ruleView is rule row i as the TOML block an overlay would hold, wrapped
+// to the window and indented under the row. Nudge rows have none.
+func (m tuiModel) ruleView(i int) []string {
+	if i >= len(m.rules) {
+		return nil
+	}
+	var b strings.Builder
+	if err := emitRule(&b, m.rules[i]); err != nil {
+		return []string{"      " + styleErr.Render(err.Error())}
+	}
+	// Wrap the plain text before styling it: lipgloss miscounts the width
+	// of text that already holds style codes.
+	wrapped := lipgloss.NewStyle().Width(max(m.width-8, 20)).Render(strings.TrimRight(b.String(), "\n"))
+	var lines []string
+	for _, l := range strings.Split(wrapped, "\n") {
+		lines = append(lines, "      "+styleMuted.Render(strings.TrimRight(l, " ")))
+	}
+	return append(lines, "")
 }
 
 // truncate cuts s to at most width cells, marking the cut with "...".
